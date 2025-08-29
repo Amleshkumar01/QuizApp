@@ -1,0 +1,67 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="alert alert-warning text-center" id="timer" style="font-size: 20px;"></div>
+
+<form method="post" id="quiz-form">
+    {% csrf_token %}
+    ...
+</form>
+
+<script>
+    let totalTime = 60;  // seconds per question or entire quiz (adjust as needed)
+    let timerElement = document.getElementById("timer");
+
+    function updateTimer() {
+        let minutes = Math.floor(totalTime / 60);
+        let seconds = totalTime % 60;
+        timerElement.innerText = `Time Left: ${minutes}:${seconds < 10 ? '0' : ''}${seconds}`;
+
+        if (totalTime <= 0) {
+            clearInterval(timerInterval);
+            alert("Time's up! Submitting your quiz...");
+            document.getElementById("quiz-form").submit();
+        }
+        totalTime--;
+    }
+
+    let timerInterval = setInterval(updateTimer, 1000);
+</script>
+
+<div class="card shadow-sm p-4">
+    <h4>Question {{ question_number }} of {{ total_questions }}</h4>
+    <p class="lead">{{ question.text }}</p>
+
+    <form method="post">
+        {% csrf_token %}
+        {% for option in options %}
+            <div class="form-check">
+                <input class="form-check-input" type="radio" name="option" id="option{{ option.id }}" value="{{ option.id }}">
+                <label class="form-check-label" for="option{{ option.id }}">
+                    {{ option.text }}
+                </label>
+            </div>
+        {% endfor %}
+        <hr>
+        <button type="submit" class="btn btn-primary mt-3">Submit Answer</button>
+    </form>
+
+    <div class="mt-3">
+        <p><strong>Time Left:</strong> <span id="timer">30</span> seconds</p>
+    </div>
+</div>
+
+<script>
+    let timeLeft = 30;
+    const timer = document.getElementById('timer');
+
+    const countdown = setInterval(() => {
+        timeLeft--;
+        timer.innerText = timeLeft;
+        if (timeLeft <= 0) {
+            clearInterval(countdown);
+            document.querySelector('form').submit();  // auto-submit
+        }
+    }, 1000);
+</script>
+
+{% endblock %}

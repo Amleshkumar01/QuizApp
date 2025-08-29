@@ -1,0 +1,49 @@
+{% extends 'base.html' %}
+{% block content %}
+
+<h2>Admin Dashboard</h2>
+
+<ul class="list-group mb-4">
+    <li class="list-group-item">Total Users: {{ total_users }}</li>
+    <li class="list-group-item">Total Quizzes: {{ total_quizzes }}</li>
+    <li class="list-group-item">Total Attempts: {{ total_attempts }}</li>
+</ul>
+
+<h4>Top 5 Attempted Quizzes</h4>
+<ul class="list-group">
+    {% for quiz in top_quizzes %}
+        <li class="list-group-item d-flex justify-content-between">
+            {{ quiz.title }}
+            <span class="badge badge-primary">{{ quiz.attempts }} attempts</span>
+        </li>
+    {% empty %}
+        <li class="list-group-item">No quiz attempts yet.</li>
+    {% endfor %}
+</ul>
+
+
+<div class="row">
+    <div class="col-md-4">
+        <div class="card text-white bg-primary mb-3">
+            <div class="card-body">
+                <h5 class="card-title">Manage Users</h5>
+                <a href="{% url 'admin_manage_users' %}" class="btn btn-light">Go</a>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-4">
+        <div class="card text-white bg-success mb-3">
+            <div class="card-body">
+                <h5 class="card-title">Manage Quizzes</h5>
+              <a href="{% url 'admin_manage_quizzes' %}" class="btn btn-light">Go</a>
+
+
+            </div>
+        </div>
+    </div>
+</div>
+
+
+
+{% endblock %}

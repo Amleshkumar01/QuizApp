@@ -1,0 +1,13 @@
+body {
+    padding-top: 70px;
+    background-color: #f8f9fa;
+}
+
+.card {
+    box-shadow: 0 0 10px rgba(0,0,0,0.05);
+}
+
+.navbar-brand {
+    font-weight: bold;
+    font-size: 1.3rem;
+}
