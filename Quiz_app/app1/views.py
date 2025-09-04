@@ -85,8 +85,13 @@ def register(request):
     return render(request, 'register.html')
 
 def category_quizzes(request, category_id):
-    quizzes = Quiz.objects.filter(category=category_id)
-    return render(request, 'quizzes_by_category.html', {'quizzes': quizzes})
+    quizzes = Quiz.objects.filter(category__id=category_id).annotate(total_questions=Count('question'))
+    category = get_object_or_404(Category, id=category_id)
+    return render(request, 'quizzes_by_category.html', {
+        'quizzes': quizzes,
+        'category': category
+    })
+
 
 
 @login_required
@@ -103,13 +108,13 @@ def start_quiz(request, quiz_id):
         'questions': questions,
         'total_questions': questions.count()
     })
-
-
 @login_required
-def attempt_quiz(request):
-    quiz_id = request.session.get('quiz_id')
+def attempt_quiz(request, quiz_id):
+    # session me quiz_id store karo
+    request.session['quiz_id'] = quiz_id  
+
     question_index = request.session.get('question_index', 0)
-    quiz = get_object_or_404(Quiz, pk=quiz_id)
+    quiz = get_object_or_404(Quiz, id=quiz_id)
     questions = quiz.question_set.all()
 
     if question_index >= len(questions):
@@ -122,15 +127,21 @@ def attempt_quiz(request):
         selected_option_id = request.POST.get('option')
         if selected_option_id:
             selected_option = Option.objects.get(id=selected_option_id)
-            # Store user's answer
-            request.session['answers'][str(current_question.id)] = selected_option.id
-            # Update score
-            if selected_option.is_correct:
-                request.session['score'] += 1
 
-        # Move to next question
-        request.session['question_index'] += 1
-        return redirect('attempt_quiz')
+            # Store user's answer
+            answers = request.session.get('answers', {})
+            answers[str(current_question.id)] = selected_option.id
+            request.session['answers'] = answers
+
+            # Update score
+            score = request.session.get('score', 0)
+            if selected_option.is_correct:
+                score += 1
+            request.session['score'] = score
+
+        # Next question
+        request.session['question_index'] = question_index + 1
+        return redirect('attempt_quiz', quiz_id=quiz_id)
 
     return render(request, 'quiz_attempt.html', {
         'question': current_question,
