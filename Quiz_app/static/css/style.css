@@ -1,7 +1,16 @@
+/* ...existing code... */
 body {
+    /* changed code */
     padding-top: 70px;
-    background-color: #f8f9fa;
+    background-color: #69a4e0; /* fallback */
+    /* background image with subtle dark overlay for readability */
+    background-image: linear-gradient(rgba(0,0,0,0.35), rgba(0,0,0,0.35)), url("/static/images/quiz_bg.jpg");
+    background-size: cover;
+    background-position: center;
+    background-repeat: no-repeat;
+    color: #fff; /* optional: makes text readable on darker overlay */
 }
+/* ...existing code... */ 
 
 .card {
     box-shadow: 0 0 10px rgba(0,0,0,0.05);
@@ -10,4 +19,33 @@ body {
 .navbar-brand {
     font-weight: bold;
     font-size: 1.3rem;
+}
+
+/* translucent content wrapper so cards/readable text contrast with background */
+.content-wrapper {
+    background: rgba(255,255,255,0.92);
+    color: #222;
+    padding: 1.5rem;
+    border-radius: 8px;
+    box-shadow: 0 6px 18px rgba(0,0,0,0.12);
+}
+
+/* make jumbotron compact on small screens */
+.jumbotron {
+    padding: 1.5rem;
+    margin-bottom: 1rem;
+}
+
+/* image constraints inside cards */
+.card img {
+    max-height: 250px;
+    object-fit: contain;
+    width: 100%;
+}
+
+/* responsive tweaks */
+@media (max-width: 576px) {
+    .content-wrapper { padding: 1rem; }
+    .jumbotron { padding: 1rem; }
+    .card { margin-bottom: 1rem; }
 }

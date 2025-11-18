@@ -2,6 +2,7 @@
 {% extends 'base.html' %}
 {% block content %}
 
+
 <div class="jumbotron text-center bg-light shadow-sm">
     <h1 class="display-4">Welcome to the Quiz App</h1>
     <p class="lead">Test your knowledge by choosing a quiz category.</p>
@@ -12,9 +13,13 @@
         <div class="col-md-4 mb-4">
             <div class="card shadow-sm">
                 <div class="card-body text-center">
-                     {% if category.image %}
-      <img src="{{ category.image.url }}" alt="{{ category.name }}" style="width:200px; height:200px;">
-    {% endif %}
+                   {% if category.image %}
+  <img src="{{ category.image.url }}"
+       alt="{{ category.name }}"
+       class="img-fluid mx-auto d-block"
+       style="max-height: 250px; object-fit: contain;">
+{% endif %}
+
                     <h5 class="card-title">{{ category.name }}</h5>
                     <a href="{% url 'category_quizzes' category.id %}" class="btn btn-primary">View Quizzes</a>
                 </div>
