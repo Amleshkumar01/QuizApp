@@ -50,7 +50,7 @@ ALLOWED_HOSTS = [
 
 
 
-DJANGO_DEBUG=false
+
 CSRF_TRUSTED_ORIGINS = [
     o.strip()
     for o in os.environ.get(
