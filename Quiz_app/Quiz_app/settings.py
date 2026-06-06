@@ -40,14 +40,25 @@ if not SECRET_KEY:
 
 ALLOWED_HOSTS = [
     h.strip()
-    for h in os.environ.get("DJANGO_ALLOWED_HOSTS", "localhost,127.0.0.1").split(",")
+    for h in os.environ.get(
+        "DJANGO_ALLOWED_HOSTS",
+        "localhost,127.0.0.1,quizapp-s39c.onrender.com"
+    ).split(",")
     if h.strip()
-    
 ]
 
-DJANGO_CSRF_TRUSTED_ORIGINS=https://quizapp-s39c.onrender.com
+
+
+
 DJANGO_DEBUG=false
-DJANGO_SECRET_KEY=django-insecure-any-long-random-key-123456789
+CSRF_TRUSTED_ORIGINS = [
+    o.strip()
+    for o in os.environ.get(
+        "DJANGO_CSRF_TRUSTED_ORIGINS",
+        "https://quizapp-s39c.onrender.com"
+    ).split(",")
+    if o.strip()
+]
 
 # HTTPS origins for CSRF when behind a reverse proxy (comma-separated full URLs).
 # Example: https://quiz.example.com,https://www.quiz.example.com
