@@ -11,6 +11,8 @@ https://docs.djangoproject.com/en/5.2/ref/settings/
 """
 
 from pathlib import Path
+import os
+from django.core.exceptions import ImproperlyConfigured
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -20,12 +22,69 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # See https://docs.djangoproject.com/en/5.2/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = 'django-insecure-w=%meni1=z67y2w!m45*frx&!%mhk0^p0&pw=o8$e$a#t3m=f-'
+# Default True for local dev; set DJANGO_DEBUG=false in production.
+DEBUG = os.environ.get("DJANGO_DEBUG", "true").strip().lower() in (
+    "1",
+    "true",
+    "yes",
+    "on",
+)
+SECRET_KEY = os.environ.get("DJANGO_SECRET_KEY", "").strip()
+if not SECRET_KEY:
+    # Allow running locally without env vars; for any non-debug deployment,
+    # you must set DJANGO_SECRET_KEY.
+    if DEBUG:
+        SECRET_KEY = "django-insecure-dev-change-me"
+    else:
+        raise ImproperlyConfigured("DJANGO_SECRET_KEY must be set when DJANGO_DEBUG is false.")
 
-# SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+ALLOWED_HOSTS = [
+    h.strip()
+    for h in os.environ.get("DJANGO_ALLOWED_HOSTS", "localhost,127.0.0.1").split(",")
+    if h.strip()
+]
 
-ALLOWED_HOSTS = ['localhost','127.0.0.1']
+# HTTPS origins for CSRF when behind a reverse proxy (comma-separated full URLs).
+# Example: https://quiz.example.com,https://www.quiz.example.com
+CSRF_TRUSTED_ORIGINS = [
+    o.strip()
+    for o in os.environ.get("DJANGO_CSRF_TRUSTED_ORIGINS", "").split(",")
+    if o.strip()
+]
+
+# Used for login throttling and one-shot quiz submission locks (use Redis/Memcached in production).
+CACHES = {
+    "default": {
+        "BACKEND": "django.core.cache.backends.locmem.LocMemCache",
+        "LOCATION": "quizapp",
+    }
+}
+
+# Cookie/session security (safe defaults even for local HTTP)
+SESSION_COOKIE_HTTPONLY = True
+CSRF_COOKIE_HTTPONLY = True
+SESSION_COOKIE_SAMESITE = "Lax"
+CSRF_COOKIE_SAMESITE = "Lax"
+
+# Safe defaults in all environments (extra headers are ignored over plain HTTP).
+SECURE_CONTENT_TYPE_NOSNIFF = True
+SECURE_REFERRER_POLICY = "same-origin"
+
+# Enable stronger transport security only when not debugging.
+if not DEBUG:
+    SECURE_SSL_REDIRECT = True
+    SESSION_COOKIE_SECURE = True
+    CSRF_COOKIE_SECURE = True
+
+    SECURE_HSTS_SECONDS = 31536000
+    SECURE_HSTS_INCLUDE_SUBDOMAINS = True
+    SECURE_HSTS_PRELOAD = True
+
+    SECURE_CROSS_ORIGIN_OPENER_POLICY = "same-origin"
+    CSRF_USE_SESSIONS = True
+
+# Mitigate clickjacking (Django default is SAMEORIGIN; DENY is stricter for this app).
+X_FRAME_OPTIONS = "DENY"
 
 
 # Application definition
@@ -67,7 +126,7 @@ TEMPLATES = [
     },
 ]
 
-LOGIN_URL = 'login/'
+LOGIN_URL = "/login/"
 
 
 ROOT_URLCONF = 'Quiz_app.urls'
@@ -130,8 +189,17 @@ STATICFILES_DIRS = [
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
-import os
-
 MEDIA_URL = '/media/'
 MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
+
+# Seconds allowed per quiz question (enforced server-side in session).
+QUIZ_QUESTION_SECONDS = int(os.environ.get("QUIZ_QUESTION_SECONDS", "60"))
+
+# Registration abuse protection (per IP).
+REGISTER_MAX_PER_IP = int(os.environ.get("REGISTER_MAX_PER_IP", "10"))
+REGISTER_THROTTLE_SECONDS = int(os.environ.get("REGISTER_THROTTLE_SECONDS", "3600"))
+
+# OpenAI — optional; without a key, built-in sample questions are used for AI generate.
+OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY", "").strip()
+OPENAI_MODEL = os.environ.get("OPENAI_MODEL", "gpt-4o-mini").strip()
 

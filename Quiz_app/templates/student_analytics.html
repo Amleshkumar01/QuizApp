@@ -1,0 +1,59 @@
+{% extends 'base.html' %}
+{% block title %}My Performance | PlacementIQ{% endblock %}
+{% block content %}
+<div class="content-wrapper">
+    <h3 class="fw-bold mb-4">My Performance</h3>
+
+    <div class="row g-4 mb-4">
+        <div class="col-lg-6">
+            <h5 class="fw-bold mb-3"><i class="bi bi-exclamation-triangle text-warning me-2"></i>Weak Topics</h5>
+            {% if weak_topics %}
+            <ul class="list-group">
+                {% for row in weak_topics %}
+                <li class="list-group-item d-flex justify-content-between">
+                    <span>{{ row.question__topic }}</span>
+                    <span class="badge bg-danger">{{ row.wrong_count }} wrong</span>
+                </li>
+                {% endfor %}
+            </ul>
+            {% else %}
+            <p class="text-muted">Attempt more tests to identify weak areas.</p>
+            {% endif %}
+        </div>
+        <div class="col-lg-6">
+            <h5 class="fw-bold mb-3"><i class="bi bi-bar-chart me-2"></i>Section Performance</h5>
+            {% if section_stats %}
+            <ul class="list-group">
+                {% for row in section_stats %}
+                <li class="list-group-item d-flex justify-content-between">
+                    <span>{{ row.quiz__section|title }}</span>
+                    <span class="text-muted small">{{ row.attempts }} attempts · avg {{ row.avg_score|floatformat:1 }}</span>
+                </li>
+                {% endfor %}
+            </ul>
+            {% else %}
+            <p class="text-muted">No section data yet.</p>
+            {% endif %}
+        </div>
+    </div>
+
+    <h5 class="fw-bold mb-3">Suggested Tests</h5>
+    <div class="row g-3 mb-4">
+        {% for test in suggested_tests %}
+        <div class="col-md-6">
+            <div class="card quiz-card">
+                <div class="card-body">
+                    <span class="badge bg-primary mb-2">{{ test.company.name }}</span>
+                    <h6 class="fw-bold">{{ test.title }}</h6>
+                    <a href="{% url 'start_quiz' test.id %}" class="btn btn-sm btn-primary">Practice</a>
+                </div>
+            </div>
+        </div>
+        {% empty %}
+        <p class="text-muted">Complete tests to get personalized suggestions.</p>
+        {% endfor %}
+    </div>
+
+    <a href="{% url 'ai_practice_plan' %}" class="btn btn-outline-primary"><i class="bi bi-robot me-1"></i>AI Practice Plan</a>
+</div>
+{% endblock %}

@@ -1,0 +1,68 @@
+{% extends 'base.html' %}
+{% block title %}{{ company.name }} Tests | PlacementIQ{% endblock %}
+{% block content %}
+<div class="content-wrapper">
+    <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-4">
+        <div>
+            <h3 class="fw-bold mb-1">{{ company.name }}</h3>
+            <p class="text-muted mb-0">{{ company.description|truncatewords:20 }}</p>
+        </div>
+        <a href="{% url 'home' %}" class="btn btn-outline-secondary btn-sm">All Companies</a>
+    </div>
+
+    <div class="alert alert-info small mb-4">
+        <i class="bi bi-robot me-1"></i>
+        Practice tests are auto-prepared for <strong>{{ default_section|title }}</strong> ·
+        <strong>{{ default_level|title }}</strong> level. Change filters below to get other sections.
+    </div>
+
+    <div class="mb-3">
+        <span class="text-muted small me-2">Level:</span>
+        <a href="?section={{ active_section|default:default_section }}" class="btn btn-sm {% if not active_level %}btn-primary{% else %}btn-outline-primary{% endif %}">All</a>
+        {% for val, label in difficulty_choices %}
+        <a href="?level={{ val }}&section={{ active_section|default:default_section }}" class="btn btn-sm {% if active_level == val %}btn-primary{% else %}btn-outline-primary{% endif %}">{{ label }}</a>
+        {% endfor %}
+    </div>
+
+    <div class="mb-4">
+        <span class="text-muted small me-2">Section:</span>
+        <a href="?level={{ active_level|default:default_level }}" class="btn btn-sm {% if not active_section %}btn-secondary{% else %}btn-outline-secondary{% endif %}">All</a>
+        {% for val, label in section_choices %}
+        <a href="?level={{ active_level|default:default_level }}&section={{ val }}" class="btn btn-sm {% if active_section == val %}btn-secondary{% else %}btn-outline-secondary{% endif %}">{{ label }}</a>
+        {% endfor %}
+    </div>
+
+    <div class="row g-3">
+        {% for test in tests %}
+        <div class="col-md-6 col-lg-4">
+            <div class="card quiz-card h-100">
+                <div class="card-body">
+                    <div class="d-flex gap-2 mb-2 flex-wrap">
+                        <span class="badge bg-info text-dark">{{ test.get_section_display }}</span>
+                        <span class="badge {% if test.difficulty == 'easy' %}bg-success{% elif test.difficulty == 'hard' %}bg-danger{% else %}bg-warning text-dark{% endif %}">{{ test.get_difficulty_display }}</span>
+                    </div>
+                    <h5 class="fw-bold">{{ test.title }}</h5>
+                    <ul class="list-unstyled text-muted small mb-3">
+                        <li><i class="bi bi-clock me-1"></i>{{ test.duration_minutes }} min</li>
+                        <li><i class="bi bi-question-circle me-1"></i>{{ test.total_questions }} questions</li>
+                        <li><i class="bi bi-plus-slash-minus me-1"></i>+{{ test.marks_per_question }} / -{{ test.negative_marks }} marks</li>
+                    </ul>
+                    {% if user.is_staff %}
+                        <span class="text-muted small">Admin — manage tests from dashboard</span>
+                    {% elif user.is_authenticated %}
+                        <a href="{% url 'start_quiz' test.id %}" class="btn btn-primary btn-sm">Start Test</a>
+                    {% else %}
+                        <a href="{% url 'login' %}" class="btn btn-outline-primary btn-sm">Login to Start</a>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+        {% empty %}
+        <div class="col-12 text-center text-muted py-5">
+            <i class="bi bi-hourglass-split display-4 d-block mb-2"></i>
+            Preparing practice questions for {{ company.name }}… refresh in a moment.
+        </div>
+        {% endfor %}
+    </div>
+</div>
+{% endblock %}

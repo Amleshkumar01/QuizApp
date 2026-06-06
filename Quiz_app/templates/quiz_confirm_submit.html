@@ -1,0 +1,14 @@
+{% extends 'base.html' %}
+{% block title %}Submit Quiz | Quiz App{% endblock %}
+{% block content %}
+<div class="content-wrapper text-center">
+    <i class="bi bi-clipboard-check display-4 text-primary mb-3 d-block"></i>
+    <h4 class="fw-bold mb-2">Finish this quiz?</h4>
+    <p class="text-muted">Your answers are saved in this session. Submit now to record your score.</p>
+    <form method="post" action="{% url 'finalize_quiz' %}" class="d-inline">
+        {% csrf_token %}
+        <button type="submit" class="btn btn-primary btn-lg me-2">Submit results</button>
+        <a href="{% url 'home' %}" class="btn btn-outline-secondary btn-lg">Cancel</a>
+    </form>
+</div>
+{% endblock %}

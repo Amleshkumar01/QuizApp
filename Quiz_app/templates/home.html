@@ -1,35 +1,83 @@
-
 {% extends 'base.html' %}
+{% block title %}Home | PlacementIQ{% endblock %}
 {% block content %}
-
-
-<div class="jumbotron text-center bg-light shadow-sm">
-    <h1 class="display-4">Welcome to the Quiz App</h1>
-    <p class="lead">Test your knowledge by choosing a quiz category.</p>
+<div class="hero-banner text-center">
+    <h1 class="display-5 mb-2">PlacementIQ</h1>
+    <p class="lead mb-0 opacity-90">Company-specific campus placement practice — Aptitude, Reasoning, English, Coding &amp; Technical.</p>
 </div>
 
-<div class="row">
-    {% for category in categories %}
-        <div class="col-md-4 mb-4">
-            <div class="card shadow-sm">
-                <div class="card-body text-center">
-                   {% if category.image %}
-  <img src="{{ category.image.url }}"
-       alt="{{ category.name }}"
-       class="img-fluid mx-auto d-block"
-       style="max-height: 250px; object-fit: contain;">
-{% endif %}
-
-                    <h5 class="card-title">{{ category.name }}</h5>
-                    <a href="{% url 'category_quizzes' category.id %}" class="btn btn-primary">View Quizzes</a>
+{% if upcoming_drives %}
+<div class="content-wrapper mb-4">
+    <h5 class="fw-bold mb-3"><i class="bi bi-calendar-event me-2"></i>Upcoming Campus Drives</h5>
+    <div class="row g-3">
+        {% for test in upcoming_drives %}
+        <div class="col-md-6 col-lg-4">
+            <div class="card quiz-card h-100">
+                <div class="card-body">
+                    <span class="badge bg-primary mb-2">{{ test.company.name }}</span>
+                    <h6 class="fw-bold">{{ test.title }}</h6>
+                    <p class="text-muted small mb-2">
+                        {{ test.get_section_display }} · {{ test.get_difficulty_display }} ·
+                        Drive: {{ test.drive_date|date:"d M Y" }}
+                    </p>
+                    <a href="{% url 'company_tests' test.company.id %}?section={{ test.section }}&level={{ test.difficulty }}" class="btn btn-sm btn-outline-primary">Practice</a>
                 </div>
             </div>
         </div>
-    {% empty %}
-        <div class="col-12 text-center">
-            <p>No categories available.</p>
+        {% endfor %}
+    </div>
+</div>
+{% endif %}
+
+<h4 class="fw-bold mb-3">Select Company</h4>
+<div class="row g-4">
+    {% for company in companies %}
+    <div class="col-sm-6 col-lg-4 col-xl-3">
+        <div class="card category-card h-100">
+            <div class="card-body text-center p-4">
+                {% if company.logo %}
+                    <img src="{{ company.logo.url }}" alt="{{ company.name }}" class="mb-3 rounded" style="height: 80px; object-fit: contain;">
+                {% else %}
+                    <div class="rounded-3 bg-light d-flex align-items-center justify-content-center mb-3 mx-auto" style="height: 80px; width: 80px;">
+                        <span class="fw-bold text-primary fs-4">{{ company.name|slice:":1" }}</span>
+                    </div>
+                {% endif %}
+                <h5 class="card-title fw-bold">{{ company.name }}</h5>
+                <p class="text-muted small">{{ company.test_count }} active test{{ company.test_count|pluralize }}</p>
+                <a href="{% url 'company_tests' company.id %}?section=aptitude&level=medium" class="btn btn-primary mt-2">
+                    <i class="bi bi-play-fill me-1"></i>Start Practice
+                </a>
+            </div>
         </div>
+    </div>
+    {% empty %}
+    <div class="col-12">
+        <div class="content-wrapper text-center text-muted">
+            <i class="bi bi-building display-4 d-block mb-2"></i>
+            No companies yet. Run: <code>python manage.py seed_placement_data</code>
+        </div>
+    </div>
     {% endfor %}
 </div>
 
+{% if user.is_authenticated and not user.is_staff %}
+<div class="row g-3 mt-2">
+    <div class="col-md-6">
+        <a href="{% url 'student_analytics' %}" class="card quiz-card text-decoration-none text-dark h-100">
+            <div class="card-body p-4">
+                <h5 class="fw-bold"><i class="bi bi-graph-up me-2 text-primary"></i>My Performance</h5>
+                <p class="text-muted mb-0 small">Weak topics, section scores, suggested tests</p>
+            </div>
+        </a>
+    </div>
+    <div class="col-md-6">
+        <a href="{% url 'ai_practice_plan' %}" class="card quiz-card text-decoration-none text-dark h-100">
+            <div class="card-body p-4">
+                <h5 class="fw-bold"><i class="bi bi-robot me-2 text-primary"></i>AI Practice Plan</h5>
+                <p class="text-muted mb-0 small">Personalized tips based on your mistakes</p>
+            </div>
+        </a>
+    </div>
+</div>
+{% endif %}
 {% endblock %}

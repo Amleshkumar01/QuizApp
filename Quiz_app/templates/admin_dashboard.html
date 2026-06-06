@@ -1,49 +1,79 @@
 {% extends 'base.html' %}
+{% block title %}TNP Dashboard | PlacementIQ{% endblock %}
 {% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h2 class="fw-bold mb-0"><i class="bi bi-speedometer2 me-2"></i>TNP / Admin Dashboard</h2>
+    <a href="{% url 'home' %}" class="btn btn-outline-secondary btn-sm">Back to site</a>
+</div>
 
-<h2>Admin Dashboard</h2>
-
-<ul class="list-group mb-4">
-    <li class="list-group-item">Total Users: {{ total_users }}</li>
-    <li class="list-group-item">Total Quizzes: {{ total_quizzes }}</li>
-    <li class="list-group-item">Total Attempts: {{ total_attempts }}</li>
-</ul>
-
-<h4>Top 5 Attempted Quizzes</h4>
-<ul class="list-group">
-    {% for quiz in top_quizzes %}
-        <li class="list-group-item d-flex justify-content-between">
-            {{ quiz.title }}
-            <span class="badge badge-primary">{{ quiz.attempts }} attempts</span>
-        </li>
-    {% empty %}
-        <li class="list-group-item">No quiz attempts yet.</li>
-    {% endfor %}
-</ul>
-
-
-<div class="row">
-    <div class="col-md-4">
-        <div class="card text-white bg-primary mb-3">
-            <div class="card-body">
-                <h5 class="card-title">Manage Users</h5>
-                <a href="{% url 'admin_manage_users' %}" class="btn btn-light">Go</a>
-            </div>
+<div class="row g-3 mb-4">
+    <div class="col-md-3">
+        <div class="admin-stat-card primary">
+            <div class="small opacity-75">Students</div>
+            <div class="display-6 fw-bold">{{ total_users }}</div>
         </div>
     </div>
-
-    <div class="col-md-4">
-        <div class="card text-white bg-success mb-3">
-            <div class="card-body">
-                <h5 class="card-title">Manage Quizzes</h5>
-              <a href="{% url 'admin_manage_quizzes' %}" class="btn btn-light">Go</a>
-
-
-            </div>
+    <div class="col-md-3">
+        <div class="admin-stat-card success">
+            <div class="small opacity-75">Tests</div>
+            <div class="display-6 fw-bold">{{ total_quizzes }}</div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="admin-stat-card info">
+            <div class="small opacity-75">Companies</div>
+            <div class="display-6 fw-bold">{{ total_companies }}</div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="admin-stat-card warning">
+            <div class="small opacity-75">Attempts</div>
+            <div class="display-6 fw-bold">{{ total_attempts }}</div>
         </div>
     </div>
 </div>
 
+<div class="content-wrapper mb-4">
+    <h5 class="fw-bold mb-3">Top 5 Attempted Quizzes</h5>
+    <ul class="list-group list-group-flush">
+        {% for quiz in top_quizzes %}
+        <li class="list-group-item d-flex justify-content-between align-items-center px-0">
+            <span>{{ quiz.title }}</span>
+            <span class="badge bg-primary rounded-pill">{{ quiz.attempts }} attempts</span>
+        </li>
+        {% empty %}
+        <li class="list-group-item text-muted px-0">No quiz attempts yet.</li>
+        {% endfor %}
+    </ul>
+</div>
 
-
+<div class="row g-3">
+    <div class="col-md-6">
+        <div class="card quiz-card">
+            <div class="card-body p-4">
+                <h5 class="fw-bold"><i class="bi bi-people me-2"></i>Manage Users</h5>
+                <p class="text-muted">Add, edit, delete users or import via CSV.</p>
+                <a href="{% url 'admin_manage_users' %}" class="btn btn-primary">Open</a>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-6">
+        <div class="card quiz-card">
+            <div class="card-body p-4">
+                <h5 class="fw-bold"><i class="bi bi-journal-text me-2"></i>Placement Tests</h5>
+                <p class="text-muted">Create company tests, AI questions, marks &amp; negative marking.</p>
+                <a href="{% url 'admin_manage_quizzes' %}" class="btn btn-primary">Open</a>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-6">
+        <div class="card quiz-card">
+            <div class="card-body p-4">
+                <h5 class="fw-bold"><i class="bi bi-graph-up me-2"></i>Analytics</h5>
+                <p class="text-muted">Student results by company, section, and recent attempts.</p>
+                <a href="{% url 'admin_analytics' %}" class="btn btn-primary">Open</a>
+            </div>
+        </div>
+    </div>
+</div>
 {% endblock %}

@@ -1,0 +1,37 @@
+{% extends 'base.html' %}
+{% block title %}AI Practice Plan | PlacementIQ{% endblock %}
+{% block content %}
+<div class="content-wrapper">
+    <h3 class="fw-bold mb-1"><i class="bi bi-robot me-2"></i>AI Practice Plan</h3>
+    <p class="text-muted mb-4">Personalized tips based on your weak topics{% if company_name %} for {{ company_name }}{% endif %}</p>
+
+    {% if weak_topics %}
+    <p class="mb-3">Focus areas: <strong>{{ weak_topics|join:", " }}</strong></p>
+    {% endif %}
+
+    <ol class="list-group list-group-numbered mb-4">
+        {% for tip in tips %}
+        <li class="list-group-item">{{ tip }}</li>
+        {% endfor %}
+    </ol>
+
+    <h5 class="fw-bold mb-3">Recommended Tests</h5>
+    <div class="row g-3">
+        {% for test in suggested_tests %}
+        <div class="col-md-6 col-lg-4">
+            <div class="card quiz-card h-100">
+                <div class="card-body">
+                    <h6 class="fw-bold">{{ test.title }}</h6>
+                    <p class="text-muted small">{{ test.company.name }} · {{ test.get_section_display }}</p>
+                    <a href="{% url 'start_quiz' test.id %}" class="btn btn-primary btn-sm">Start</a>
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+
+    <div class="mt-4">
+        <a href="{% url 'student_analytics' %}" class="btn btn-outline-secondary">Back to Analytics</a>
+    </div>
+</div>
+{% endblock %}

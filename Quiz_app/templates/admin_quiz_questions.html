@@ -1,0 +1,67 @@
+{% extends 'base.html' %}
+{% block title %}Questions — {{ quiz.title }} | Quiz App{% endblock %}
+{% block content %}
+<div class="content-wrapper">
+    <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-4">
+        <div>
+            <h3 class="fw-bold mb-1">Questions</h3>
+            <p class="text-muted mb-0">
+                {{ quiz.title }}
+                {% if quiz.company %}· {{ quiz.company.name }}{% endif %}
+                · {{ quiz.get_section_display }} · {{ quiz.get_difficulty_display }}
+            </p>
+        </div>
+        <div class="d-flex gap-2">
+            <a href="{% url 'admin_add_question' quiz.id %}" class="btn btn-primary btn-sm">Add Question</a>
+            <a href="{% url 'admin_ai_generate' quiz.id %}" class="btn btn-outline-primary btn-sm"><i class="bi bi-robot"></i> AI Generate</a>
+            <a href="{% url 'admin_manage_quizzes' %}" class="btn btn-outline-secondary btn-sm">Back</a>
+        </div>
+    </div>
+
+    {% if questions %}
+    <div class="vstack gap-3">
+        {% for question in questions %}
+        <div class="card quiz-card">
+            <div class="card-body p-4">
+                <div class="d-flex flex-wrap justify-content-between align-items-start gap-2 mb-3">
+                    <h5 class="fw-semibold mb-0">
+                        {% if question.text|slice:":1"|upper == "Q" %}{{ question.text }}{% else %}Q{{ forloop.counter }}. {{ question.text }}{% endif %}
+                    </h5>
+                    <div class="d-flex gap-2 flex-shrink-0">
+                        <a href="{% url 'admin_edit_question' question.id %}" class="btn btn-warning btn-sm">Edit</a>
+                        <form method="post" action="{% url 'admin_delete_question' question.id %}" class="d-inline" onsubmit="return confirm('Delete this question and its answers?');">
+                            {% csrf_token %}
+                            <button type="submit" class="btn btn-danger btn-sm">Delete</button>
+                        </form>
+                    </div>
+                </div>
+                <ul class="list-group list-group-flush">
+                    {% for option in question.options.all %}
+                    <li class="list-group-item d-flex align-items-center gap-2 px-0 {% if option.is_correct %}text-success fw-semibold{% endif %}">
+                        {% if option.is_correct %}
+                        <i class="bi bi-check-circle-fill"></i>
+                        {% else %}
+                        <i class="bi bi-circle text-muted"></i>
+                        {% endif %}
+                        {{ option.text }}
+                        {% if option.is_correct %}
+                        <span class="badge bg-success ms-auto">Correct</span>
+                        {% endif %}
+                    </li>
+                    {% empty %}
+                    <li class="list-group-item text-muted px-0">No answers yet.</li>
+                    {% endfor %}
+                </ul>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+    {% else %}
+    <div class="text-center py-5">
+        <i class="bi bi-question-circle display-4 text-muted"></i>
+        <p class="text-muted mt-3 mb-3">This quiz has no questions yet.</p>
+        <a href="{% url 'admin_add_question' quiz.id %}" class="btn btn-primary">Add First Question</a>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

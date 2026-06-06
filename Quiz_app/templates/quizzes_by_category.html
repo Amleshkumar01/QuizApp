@@ -1,45 +1,57 @@
 {% extends 'base.html' %}
+{% block title %}{{ category.name }} Quizzes | Quiz App{% endblock %}
 {% block content %}
-
-<h2 class="mb-4">Available Quizzes</h2>
-
-<div class="row">
-    {% for quiz in quizzes %}
-        <div class="col-md-6 mb-4">
-            <div class="card shadow-sm">
-                <div class="card-body">
-                    <h5 class="card-title">{{ quiz.title }}</h5>
-                    <p><strong>Category:</strong> {{ quiz.category.name }}</p>
-                    <p><strong>Status:</strong>
-                        {% if quiz.status == 'active' %}
-                            <span class="badge badge-success">Active</span>
-                        {% elif quiz.status == 'hold' %}
-                            <span class="badge badge-warning">On Hold</span>
-                        {% else %}
-                            <span class="badge badge-secondary">Disabled</span>
-                        {% endif %}
-                    </p>
-                    <p><strong>Total Questions:</strong> {{ total_questions }}</p>
-                    {% if user.is_authenticated %}
-                        {% if quiz.status == 'active' %}
-                   <a href="{% url 'attempt_quiz' quiz.id %}" class="btn btn-primary mt-3">Start Quiz</a>
-                        {% else %}
-                            <div class="alert alert-warning mt-3">
-                                This quiz is not currently active and cannot be attempted.
-                            </div>
-                        {% endif %}
-                        {% else %}
-                            <div class="alert alert-info mt-3">
-                                You must <a href="{% url 'login' %}">login</a> to attempt quizzes.
-                            </div>
-                    {% endif %}
-                </div>
-            </div>
-        </div>
-    {% empty %}
-        <p>No quizzes found for this category.</p>
-    {% endfor %}
+<div class="page-header">
+    <div>
+        <h2>{{ category.name }}</h2>
+        <p class="text-muted mb-0">Pick a quiz to begin your attempt.</p>
+    </div>
+    <a href="{% url 'home' %}" class="btn btn-outline-secondary btn-back">
+        <i class="bi bi-arrow-left me-1"></i>Back to Home
+    </a>
 </div>
 
-{% endblock %}
+<div class="row g-4">
+    {% for quiz in quizzes %}
+    <div class="col-sm-6 col-xl-4">
+        <div class="card quiz-card">
+            <div class="card-body p-4">
+                <div class="d-flex justify-content-between align-items-start mb-2">
+                    <h5 class="card-title fw-bold mb-0">{{ quiz.title }}</h5>
+                    {% if quiz.status == 'active' %}
+                        <span class="badge rounded-pill badge-status-active">Active</span>
+                    {% elif quiz.status == 'hold' %}
+                        <span class="badge rounded-pill badge-status-hold">On Hold</span>
+                    {% else %}
+                        <span class="badge rounded-pill badge-status-disabled">Disabled</span>
+                    {% endif %}
+                </div>
+                <p class="text-muted mb-1"><i class="bi bi-question-circle me-1"></i>{{ quiz.total_questions }} question{{ quiz.total_questions|pluralize }}</p>
 
+                {% if user.is_staff %}
+                    <div class="alert alert-secondary mt-3 mb-0 py-2">Admin accounts cannot attempt quizzes.</div>
+                {% elif user.is_authenticated %}
+                    {% if quiz.status == 'active' and quiz.total_questions > 0 %}
+                        <a href="{% url 'start_quiz' quiz.id %}" class="btn btn-primary mt-3">
+                            <i class="bi bi-play-circle me-1"></i>Start Quiz
+                        </a>
+                    {% elif quiz.status == 'active' %}
+                        <div class="alert alert-warning mt-3 mb-0 py-2">This quiz has no questions yet.</div>
+                    {% else %}
+                        <div class="alert alert-secondary mt-3 mb-0 py-2">This quiz is not available right now.</div>
+                    {% endif %}
+                {% else %}
+                    <div class="alert alert-info mt-3 mb-0 py-2">
+                        <a href="{% url 'login' %}">Login</a> to attempt this quiz.
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+    {% empty %}
+    <div class="col-12">
+        <div class="content-wrapper text-center text-muted">No quizzes found in this category.</div>
+    </div>
+    {% endfor %}
+</div>
+{% endblock %}

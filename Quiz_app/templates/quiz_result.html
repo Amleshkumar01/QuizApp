@@ -1,10 +1,64 @@
 {% extends 'base.html' %}
+{% block title %}Test Result | PlacementIQ{% endblock %}
 {% block content %}
+<div class="content-wrapper">
+    <div class="text-center mb-4">
+        <h2 class="fw-bold mb-3">Test Completed!</h2>
+        <div class="score-ring mx-auto" style="--pct: {{ percentage }};">
+            <div class="score-ring-inner">{{ percentage }}%</div>
+        </div>
+        <p class="lead mb-1 mt-3">
+            <strong class="text-success">{{ correct_count }}</strong> correct ·
+            <strong class="text-danger">{{ wrong_count }}</strong> wrong ·
+            <strong>{{ score }}</strong>/{{ total_questions }}
+        </p>
+        <p class="text-muted mb-1">Marks obtained: <strong>{{ attempt.marks_obtained }}</strong></p>
+        <p class="text-muted mb-0"><em>{{ quiz.title }}</em>{% if quiz.company %} · {{ quiz.company.name }}{% endif %}</p>
+    </div>
 
-<div class="text-center mt-5">
-    <h2>Quiz Completed!</h2>
-    <p class="lead">You scored {{ score }} out of {{ total_questions }} on "{{ quiz.title }}"</p>
-    <a href="{% url 'home' %}" class="btn btn-primary">Go to Home</a>
+    <h4 class="fw-bold mb-3">Answer Review</h4>
+    <div class="vstack gap-3 mb-4">
+        {% for row in answer_rows %}
+        <div class="card quiz-card {% if row.is_correct %}border-success{% else %}border-danger{% endif %}">
+            <div class="card-body">
+                <div class="d-flex gap-2 mb-2">
+                    {% if row.is_correct %}
+                    <span class="badge bg-success">Correct</span>
+                    {% else %}
+                    <span class="badge bg-danger">Wrong</span>
+                    {% endif %}
+                    {% if row.question.topic %}
+                    <span class="badge bg-secondary">{{ row.question.topic }}</span>
+                    {% endif %}
+                </div>
+                <p class="fw-semibold mb-2">{{ row.question.text }}</p>
+                <p class="mb-1 small">Your answer: <span class="{% if not row.is_correct %}text-danger{% endif %}">{{ row.selected.text }}</span></p>
+                {% if not row.is_correct and row.correct_option %}
+                <p class="mb-2 small text-success">Correct: {{ row.correct_option.text }}</p>
+                {% endif %}
+                {% if row.explanation %}
+                <div class="alert alert-light small mb-0 mt-2">
+                    <i class="bi bi-lightbulb me-1"></i>{{ row.explanation }}
+                </div>
+                {% endif %}
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+
+    <div class="d-flex gap-2 justify-content-center flex-wrap">
+        <a href="{% url 'student_analytics' %}" class="btn btn-outline-primary">
+            <i class="bi bi-graph-up me-1"></i>My Performance
+        </a>
+        <a href="{% url 'ai_practice_plan' %}" class="btn btn-outline-primary">
+            <i class="bi bi-robot me-1"></i>AI Practice Plan
+        </a>
+        <a href="{% url 'my_attempts' %}" class="btn btn-outline-secondary">
+            <i class="bi bi-clock-history me-1"></i>My Attempts
+        </a>
+        <a href="{% url 'home' %}" class="btn btn-primary">
+            <i class="bi bi-house me-1"></i>Home
+        </a>
+    </div>
 </div>
-
 {% endblock %}

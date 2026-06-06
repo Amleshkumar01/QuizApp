@@ -1,0 +1,81 @@
+{% extends 'base.html' %}
+{% block title %}Placement Analytics | PlacementIQ{% endblock %}
+{% block content %}
+<div class="content-wrapper">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h3 class="fw-bold mb-0">Student Performance Analytics</h3>
+        <a href="{% url 'admin_dashboard' %}" class="btn btn-outline-secondary btn-sm">Dashboard</a>
+    </div>
+
+    <div class="row g-4 mb-4">
+        <div class="col-lg-6">
+            <h5 class="fw-bold mb-3">By Company</h5>
+            <div class="table-responsive table-modern">
+                <table class="table table-hover mb-0">
+                    <thead><tr><th>Company</th><th>Attempts</th><th>Avg Score</th></tr></thead>
+                    <tbody>
+                        {% for row in by_company %}
+                        <tr>
+                            <td>{{ row.quiz__company__name }}</td>
+                            <td>{{ row.attempts }}</td>
+                            <td>{{ row.avg_score|floatformat:1 }}</td>
+                        </tr>
+                        {% empty %}
+                        <tr><td colspan="3" class="text-muted">No data yet.</td></tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        <div class="col-lg-6">
+            <h5 class="fw-bold mb-3">By Section</h5>
+            <div class="table-responsive table-modern">
+                <table class="table table-hover mb-0">
+                    <thead><tr><th>Section</th><th>Attempts</th><th>Avg Score</th></tr></thead>
+                    <tbody>
+                        {% for row in by_section %}
+                        <tr>
+                            <td>{{ row.quiz__section|title }}</td>
+                            <td>{{ row.attempts }}</td>
+                            <td>{{ row.avg_score|floatformat:1 }}</td>
+                        </tr>
+                        {% empty %}
+                        <tr><td colspan="3" class="text-muted">No data yet.</td></tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <h5 class="fw-bold mb-3">Recent Attempts</h5>
+    <div class="table-responsive table-modern">
+        <table class="table table-hover mb-0 align-middle">
+            <thead>
+                <tr>
+                    <th>Student</th>
+                    <th>Test</th>
+                    <th>Company</th>
+                    <th>Score</th>
+                    <th>Marks</th>
+                    <th>Date</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for a in recent_attempts %}
+                <tr>
+                    <td>{{ a.user.username }}</td>
+                    <td>{{ a.quiz.title }}</td>
+                    <td>{{ a.quiz.company.name|default:"—" }}</td>
+                    <td>{{ a.score }}/{{ a.total }}</td>
+                    <td>{{ a.marks_obtained }}</td>
+                    <td class="text-muted">{{ a.completed_at|date:"d M Y H:i" }}</td>
+                </tr>
+                {% empty %}
+                <tr><td colspan="6" class="text-muted">No attempts yet.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

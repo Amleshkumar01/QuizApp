@@ -1,37 +1,64 @@
 {% extends 'base.html' %}
+{% block title %}Placement Tests | PlacementIQ{% endblock %}
 {% block content %}
-<h3>Manage Quizzes</h3>
+<div class="content-wrapper">
+    <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-4">
+        <h3 class="fw-bold mb-0">Placement Tests</h3>
+        <div class="d-flex gap-2">
+            <a href="{% url 'admin_add_quiz' %}" class="btn btn-primary btn-sm">Create Test</a>
+            <a href="{% url 'upload_quizzes_csv' %}" class="btn btn-outline-secondary btn-sm">Upload CSV</a>
+            <a href="{% url 'admin_dashboard' %}" class="btn btn-outline-secondary btn-sm">Dashboard</a>
+        </div>
+    </div>
 
-<a href="{% url 'admin_add_quiz' %}" class="btn btn-primary mb-3">Add Quiz</a>
-<a href="{% url 'upload_quizzes_csv' %}" class="btn btn-secondary mb-3 ml-2">Upload CSV</a>
-
-<table class="table table-bordered">
-    <thead>
-        <tr>
-            <th>Title</th><th>Category</th><th>Status</th><th>Created</th><th>Actions</th>
-        </tr>
-    </thead>
-    <tbody>
-        {% for quiz in quizzes %}
-        <tr>
-            <td>{{ quiz.title }}</td>
-            <td>{{ quiz.category }}</td>
-            <td>
-	{% if quiz.status == "active" %}
-                <span class="badge bg-success p-2 text-white">Active</span>
-            {% elif quiz.status == "hold" %}
-                <span class="badge bg-warning p-2 text-white">On Hold</span>
-            {% else %}
-                <span class="badge bg-secondary p-2 text-white">Disabled</span>
-            {% endif %}
-</td>
-            <td>{{ quiz.created_at }}</td>
-            <td>
-                <a href="{% url 'admin_edit_quiz' quiz.id %}" class="btn btn-warning btn-sm">Edit</a>
-                <a href="{% url 'admin_delete_quiz' quiz.id %}" class="btn btn-danger btn-sm">Delete</a>
-            </td>
-        </tr>
-        {% endfor %}
-    </tbody>
-</table>
+    <div class="table-responsive table-modern">
+        <table class="table table-hover mb-0 align-middle">
+            <thead>
+                <tr>
+                    <th>Title</th>
+                    <th>Company</th>
+                    <th>Section</th>
+                    <th>Level</th>
+                    <th>Questions</th>
+                    <th>Status</th>
+                    <th>Created</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for quiz in quizzes %}
+                <tr>
+                    <td class="fw-semibold">{{ quiz.title }}</td>
+                    <td>{{ quiz.company.name|default:"—" }}</td>
+                    <td>{{ quiz.get_section_display }}</td>
+                    <td>{{ quiz.get_difficulty_display }}</td>
+                    <td>
+                        <a href="{% url 'admin_quiz_questions' quiz.id %}" class="badge bg-secondary text-decoration-none">
+                            {{ quiz.question_count }} question{{ quiz.question_count|pluralize }}
+                        </a>
+                    </td>
+                    <td>
+                        {% if quiz.status == "active" %}
+                            <span class="badge rounded-pill badge-status-active">Active</span>
+                        {% elif quiz.status == "hold" %}
+                            <span class="badge rounded-pill badge-status-hold">On Hold</span>
+                        {% else %}
+                            <span class="badge rounded-pill badge-status-disabled">Disabled</span>
+                        {% endif %}
+                    </td>
+                    <td class="text-muted">{{ quiz.created_at|date:"d M Y" }}</td>
+                    <td>
+                        <a href="{% url 'admin_quiz_questions' quiz.id %}" class="btn btn-info btn-sm text-white">Questions</a>
+                        <a href="{% url 'admin_edit_quiz' quiz.id %}" class="btn btn-warning btn-sm">Edit</a>
+                        <form method="post" action="{% url 'admin_delete_quiz' quiz.id %}" class="d-inline" onsubmit="return confirm('Delete this quiz?');">
+                            {% csrf_token %}
+                            <button type="submit" class="btn btn-danger btn-sm">Delete</button>
+                        </form>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
 {% endblock %}

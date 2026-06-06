@@ -1,42 +1,30 @@
 {% extends 'base.html' %}
-{% load static %}
-
+{% block title %}Register | Quiz App{% endblock %}
 {% block content %}
-<div class="container">
-    <div class="row justify-content-center">
-        <div class="col-md-6">
-
-            <h2 class="mb-4 text-center">Register</h2>
-
-            {% for message in messages %}
-                <div class="alert alert-{{ message.tags }}">{{ message }}</div>
-            {% endfor %}
-
-            <form method="POST">
-                {% csrf_token %}
-                <div class="form-group">
-                    <label>Username</label>
-                    <input type="text" name="username" required class="form-control">
-                </div>
-                <div class="form-group">
-                    <label>Email</label>
-                    <input type="email" name="email" required class="form-control">
-                </div>
-                <div class="form-group">
-                    <label>Password</label>
-                    <input type="password" name="password" required class="form-control">
-                </div>
-                <div class="form-group">
-                    <label>Confirm Password</label>
-                    <input type="password" name="confirm_password" required class="form-control">
-                </div>
-                <button type="submit" class="btn btn-primary btn-block">Create Account</button>
-            </form>
-
-            <div class="text-center mt-3">
-                Already have an account? <a href="{%url 'login'%}">Login here</a>
-            </div>
+<div class="content-wrapper auth-card">
+    <h2 class="text-center fw-bold mb-4"><i class="bi bi-person-plus me-2"></i>Register</h2>
+    <form method="post" novalidate>
+        {% csrf_token %}
+        <div class="mb-3">
+            <label class="form-label">Username</label>
+            <input type="text" name="username" required class="form-control" placeholder="Choose a username">
         </div>
-    </div>
+        <div class="mb-3">
+            <label class="form-label">Email</label>
+            <input type="email" name="email" required class="form-control" placeholder="you@example.com">
+        </div>
+        <div class="mb-3">
+            <label class="form-label">Password</label>
+            <input type="password" name="password" required class="form-control" placeholder="Strong password">
+        </div>
+        <div class="mb-4">
+            <label class="form-label">Confirm Password</label>
+            <input type="password" name="confirm_password" required class="form-control" placeholder="Repeat password">
+        </div>
+        <button type="submit" class="btn btn-primary w-100 py-2">Create account</button>
+    </form>
+    <p class="text-center text-muted mt-3 mb-0">
+        Already registered? <a href="{% url 'login' %}">Login here</a>
+    </p>
 </div>
 {% endblock %}

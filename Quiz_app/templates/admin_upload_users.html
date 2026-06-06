@@ -1,11 +1,17 @@
 {% extends 'base.html' %}
+{% block title %}Upload Users CSV | Quiz App{% endblock %}
 {% block content %}
-<h3>Upload Users via CSV</h3>
-<form method="post" enctype="multipart/form-data">
-    {% csrf_token %}
-    <input type="file" name="csv_file" class="form-control-file mb-3" required>
-    <button type="submit" class="btn btn-info">Upload CSV</button>
-</form>
-<p class="text-muted mt-2">CSV Format: <code>username,email,password</code></p>
+<div class="content-wrapper" style="max-width: 520px;">
+    <h3 class="fw-bold mb-4">Upload Users via CSV</h3>
+    <form method="post" enctype="multipart/form-data">
+        {% csrf_token %}
+        <div class="mb-3">
+            <label class="form-label">CSV file (max 2MB)</label>
+            <input type="file" name="csv_file" class="form-control" accept=".csv,text/csv" required>
+        </div>
+        <button type="submit" class="btn btn-primary">Upload</button>
+        <a href="{% url 'admin_manage_users' %}" class="btn btn-outline-secondary ms-2">Back</a>
+    </form>
+    <p class="text-muted small mt-3 mb-0">Format: <code>username,email,password</code>. Passwords must pass Django validators.</p>
+</div>
 {% endblock %}
-
