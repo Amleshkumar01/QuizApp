@@ -1,0 +1,33 @@
+{% extends 'base.html' %}
+{% block title %}{% if company %}Edit Company{% else %}Add Company{% endif %} | PlacementIQ{% endblock %}
+{% block content %}
+<div class="content-wrapper">
+    <h2 class="fw-bold mb-4">
+        <i class="bi bi-building me-2"></i>{% if company %}Edit Company{% else %}Add Company{% endif %}
+    </h2>
+    <form method="post" enctype="multipart/form-data" novalidate>
+        {% csrf_token %}
+        <div class="mb-3">
+            <label class="form-label">Company Name</label>
+            <input type="text" name="name" required class="form-control" value="{{ company.name|default:'' }}" placeholder="e.g. TCS">
+        </div>
+        <div class="mb-3">
+            <label class="form-label">Description</label>
+            <textarea name="description" class="form-control" rows="3" placeholder="Optional description">{{ company.description|default:'' }}</textarea>
+        </div>
+        <div class="mb-3">
+            <label class="form-label">Logo</label>
+            <input type="file" name="logo" class="form-control" accept="image/*">
+            {% if company.logo %}
+                <div class="mt-2"><img src="{{ company.logo.url }}" alt="" style="height: 48px;"></div>
+            {% endif %}
+        </div>
+        <div class="form-check mb-4">
+            <input class="form-check-input" type="checkbox" name="is_active" id="is_active" {% if not company or company.is_active %}checked{% endif %}>
+            <label class="form-check-label" for="is_active">Active</label>
+        </div>
+        <button type="submit" class="btn btn-primary">Save</button>
+        <a href="{% url 'admin_manage_companies' %}" class="btn btn-outline-secondary ms-2">Cancel</a>
+    </form>
+</div>
+{% endblock %}

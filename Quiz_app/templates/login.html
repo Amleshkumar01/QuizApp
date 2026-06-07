@@ -1,22 +1,26 @@
-{% extends 'base.html' %}
-{% block title %}Login | Quiz App{% endblock %}
-{% block content %}
-<div class="content-wrapper auth-card">
-    <h2 class="text-center fw-bold mb-4"><i class="bi bi-shield-lock me-2"></i>Login</h2>
-    <form method="post" novalidate>
-        {% csrf_token %}
-        <div class="mb-3">
-            <label class="form-label">Username</label>
-            <input autocomplete="username" type="text" name="username" required class="form-control" placeholder="Enter username">
-        </div>
-        <div class="mb-4">
-            <label class="form-label">Password</label>
-            <input autocomplete="current-password" type="password" name="password" required class="form-control" placeholder="Enter password">
-        </div>
-        <button type="submit" class="btn btn-primary w-100 py-2">Sign in</button>
-    </form>
-    <p class="text-center text-muted mt-3 mb-0">
-        New here? <a href="{% url 'register' %}">Create an account</a>
-    </p>
-</div>
-{% endblock %}
+{% extends 'base.html' %}
+{% block title %}Student Login | PlacementIQ{% endblock %}
+{% block content %}
+<div class="content-wrapper auth-card">
+    <h2 class="text-center fw-bold mb-2"><i class="bi bi-mortarboard me-2"></i>Student Login</h2>
+    <p class="text-center text-muted mb-4">
+        Sign in with your college ERP (AccSoft) Student Login ID and password.
+    </p>
+    <form method="post" novalidate>
+        {% csrf_token %}
+        <div class="mb-3">
+            <label class="form-label">Student Login ID</label>
+            <input autocomplete="username" type="text" name="enrollment_id" required class="form-control" placeholder="Enter your college enrollment / login ID">
+        </div>
+        <div class="mb-4">
+            <label class="form-label">Password</label>
+            <input autocomplete="current-password" type="password" name="password" required class="form-control" placeholder="Enter your college ERP password">
+        </div>
+        <button type="submit" class="btn btn-primary w-100 py-2">Sign in</button>
+    </form>
+    <p class="text-center text-muted mt-3 mb-0 small">
+        Use the same credentials as
+        <a href="https://accsoft.lnctu.ac.in/AccSoft2/StudentLogin.aspx" target="_blank" rel="noopener noreferrer">LNCTU AccSoft portal</a>.
+    </p>
+</div>
+{% endblock %}

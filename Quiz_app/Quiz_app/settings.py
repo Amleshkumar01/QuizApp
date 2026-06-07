@@ -120,13 +120,17 @@ TEMPLATES = [
                 'django.template.context_processors.request',
                 'django.contrib.auth.context_processors.auth',
                 'django.contrib.messages.context_processors.messages',
-                
+                'app1.context_processors.student_profile',
             ],
         },
     },
 ]
 
-LOGIN_URL = "/login/"
+LOGIN_URL = "/student/login/"
+ADMIN_LOGIN_URL = "/admin/login/"
+
+# Django built-in admin is disabled in urls.py; this path is kept for staff_member_required fallbacks.
+ADMIN_URL = os.environ.get("DJANGO_INTERNAL_ADMIN_PATH", "").strip()
 
 
 ROOT_URLCONF = 'Quiz_app.urls'
@@ -196,9 +200,39 @@ MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
 # Seconds allowed per quiz question (enforced server-side in session).
 QUIZ_QUESTION_SECONDS = int(os.environ.get("QUIZ_QUESTION_SECONDS", "60"))
 
-# Registration abuse protection (per IP).
-REGISTER_MAX_PER_IP = int(os.environ.get("REGISTER_MAX_PER_IP", "10"))
-REGISTER_THROTTLE_SECONDS = int(os.environ.get("REGISTER_THROTTLE_SECONDS", "3600"))
+# LNCTU AccSoft college ERP authentication (student login verification).
+COLLEGE_LOGIN_URL = os.environ.get(
+    "COLLEGE_LOGIN_URL",
+    "https://accsoft.lnctu.ac.in/AccSoft2/StudentLogin.aspx",
+).strip()
+COLLEGE_PORTAL_URL = os.environ.get(
+    "COLLEGE_PORTAL_URL",
+    "https://accsoft.lnctu.ac.in/AccSoft2/Parents/ParentDesk1.aspx",
+).strip()
+COLLEGE_STUDENT_DETAILS_URL = os.environ.get(
+    "COLLEGE_STUDENT_DETAILS_URL",
+    "https://accsoft.lnctu.ac.in/AccSoft2/Parents/StudentPersonalDetails.aspx",
+).strip()
+_COLLEGE_BASE_URL = COLLEGE_LOGIN_URL.rsplit("/", 1)[0] + "/"
+COLLEGE_PROFILE_URLS = [
+    u.strip()
+    for u in os.environ.get(
+        "COLLEGE_PROFILE_URLS",
+        ",".join(
+            [
+                COLLEGE_STUDENT_DETAILS_URL,
+                COLLEGE_PORTAL_URL,
+                f"{_COLLEGE_BASE_URL}Parents/ParentDesk1.aspx",
+            ]
+        ),
+    ).split(",")
+    if u.strip()
+]
+COLLEGE_SUCCESS_URL_MARKER = os.environ.get(
+    "COLLEGE_SUCCESS_URL_MARKER",
+    "ParentDesk",
+).strip()
+COLLEGE_AUTH_TIMEOUT = int(os.environ.get("COLLEGE_AUTH_TIMEOUT", "25"))
 
 # OpenAI — optional; without a key, built-in sample questions are used for AI generate.
 OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY", "").strip()

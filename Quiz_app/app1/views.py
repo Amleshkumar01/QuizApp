@@ -3,6 +3,7 @@ from decimal import Decimal, InvalidOperation
 from io import TextIOWrapper
 import csv
 import random
+import re
 import time
 
 from django.conf import settings
@@ -11,7 +12,9 @@ from django.contrib.auth import authenticate, login, logout
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.models import User
 from django.contrib.auth.password_validation import validate_password
-from django.contrib.admin.views.decorators import staff_member_required
+from django.http import HttpResponseForbidden
+
+from .decorators import admin_required, student_required
 from django.core.cache import cache
 from django.core.exceptions import ValidationError
 from django.db import transaction
@@ -22,6 +25,7 @@ from django.views.decorators.http import require_http_methods, require_POST
 
 from .ai_service import explain_answer, generate_questions, number_question_items, personalized_suggestions
 from .analytics import admin_placement_stats, student_section_performance, student_weak_topics, suggested_tests_for_user
+from .college_auth import is_valid_student_name, verify_college_login
 from .models import Answer, Attempt, Category, Company, Option, Question, Quiz
 
 _LOGIN_THROTTLE_SECONDS = 900
@@ -310,18 +314,57 @@ def _session_quiz_state_ok(quiz, question_ids):
     return set(question_ids) == valid
 
 
-def _register_throttle_key(request):
-    return f"register_throttle:ip:{_client_ip(request)}"
+def _sanitize_student_username(enrollment_id):
+    """Map college enrollment/login ID to a valid Django username."""
+    cleaned = re.sub(r"[^\w.@+-]", "_", (enrollment_id or "").strip())[:150]
+    return cleaned or "student"
 
 
-def _is_register_throttled(request):
-    return cache.get(_register_throttle_key(request), 0) >= settings.REGISTER_MAX_PER_IP
+def _get_or_create_college_student_user(enrollment_id, display_name="", email=""):
+    """Create a Django user for quiz attempts — password is never stored."""
+    username = _sanitize_student_username(enrollment_id)
+    user, created = User.objects.get_or_create(
+        username=username,
+        defaults={
+            "email": email or "",
+            "first_name": display_name or "",
+            "is_staff": False,
+        },
+    )
+    changed = False
+    if display_name and is_valid_student_name(display_name, enrollment_id):
+        if user.first_name != display_name:
+            user.first_name = display_name
+            changed = True
+    elif user.first_name and not is_valid_student_name(user.first_name, enrollment_id):
+        user.first_name = ""
+        changed = True
+    if email and user.email != email:
+        user.email = email
+        changed = True
+    if user.has_usable_password():
+        user.set_unusable_password()
+        changed = True
+    if created or changed:
+        user.save()
+    return user
 
 
-def _bump_register_throttle(request):
-    key = _register_throttle_key(request)
-    n = cache.get(key, 0) + 1
-    cache.set(key, n, settings.REGISTER_THROTTLE_SECONDS)
+def _store_student_profile_session(request, enrollment_id, display_name="", email=""):
+    request.session["student_enrollment_id"] = enrollment_id
+    if display_name:
+        request.session["student_display_name"] = display_name
+    else:
+        request.session.pop("student_display_name", None)
+    if email:
+        request.session["student_email"] = email
+    else:
+        request.session.pop("student_email", None)
+
+
+def _clear_student_profile_session(request):
+    for key in ("student_enrollment_id", "student_display_name", "student_email"):
+        request.session.pop(key, None)
 
 
 def _question_timed_out(request):
@@ -480,10 +523,27 @@ def _finish_or_advance_quiz(request, quiz, question_index, question_ids, is_last
     return redirect("attempt_quiz", quiz_id=quiz.pk)
 
 
+def _post_login_redirect(user):
+    if user.is_staff:
+        return redirect("admin_dashboard")
+    return redirect("student_dashboard")
+
+
+def django_admin_blocked(request):
+    """Block public access to the default Django /admin/ URL."""
+    return HttpResponseForbidden(
+        "Access denied. The default admin URL is disabled. "
+        "Use the authorized admin login page if you are an administrator."
+    )
+
+
 @require_http_methods(["GET", "POST"])
-def login_view(request):
+def admin_login_view(request):
     if request.user.is_authenticated:
-        return redirect("home")
+        if request.user.is_staff:
+            return redirect("admin_dashboard")
+        messages.warning(request, "Student accounts must use the student login page.")
+        return redirect("student_dashboard")
 
     if request.method == "POST":
         username = (request.POST.get("username") or "").strip()
@@ -494,29 +554,134 @@ def login_view(request):
                 request,
                 "Too many login attempts. Please wait a few minutes and try again.",
             )
-            return redirect("login")
+            return redirect("admin_login")
 
         user = authenticate(request, username=username, password=password)
-        if user is not None:
+        if user is not None and user.is_staff:
             _clear_login_throttle(request, username)
             request.session.cycle_key()
             login(request, user)
-            messages.success(request, f"Welcome {username}!")
-            return redirect("home")
+            messages.success(request, f"Welcome, {username}!")
+            return redirect("admin_dashboard")
 
         _bump_login_throttle(request, username)
-        messages.error(request, "Invalid username or password.")
-        return redirect("login")
+        if user is not None and not user.is_staff:
+            messages.error(request, "This login is for administrators only. Use student login.")
+        else:
+            messages.error(request, "Invalid admin credentials.")
+        return redirect("admin_login")
+
+    return render(request, "admin_login.html")
+
+
+@require_http_methods(["GET", "POST"])
+def student_login_view(request):
+    if request.user.is_authenticated:
+        return _post_login_redirect(request.user)
+
+    if request.method == "POST":
+        enrollment_id = (request.POST.get("enrollment_id") or request.POST.get("username") or "").strip()
+        password = request.POST.get("password") or ""
+
+        if _is_login_throttled(request, enrollment_id):
+            messages.error(
+                request,
+                "Too many login attempts. Please wait a few minutes and try again.",
+            )
+            return redirect("student_login")
+
+        auth_result = verify_college_login(enrollment_id, password)
+        if auth_result.success:
+            user = _get_or_create_college_student_user(
+                auth_result.enrollment_id,
+                display_name=auth_result.display_name,
+                email=auth_result.email,
+            )
+            if user.is_staff:
+                messages.error(request, "Admin accounts must use the admin login page.")
+                return redirect("admin_login")
+
+            _clear_login_throttle(request, enrollment_id)
+            request.session.cycle_key()
+            profile_name = ""
+            if auth_result.display_name and is_valid_student_name(
+                auth_result.display_name, auth_result.enrollment_id
+            ):
+                profile_name = auth_result.display_name
+            elif is_valid_student_name(user.first_name, auth_result.enrollment_id):
+                profile_name = user.first_name
+
+            profile_email = auth_result.email or user.email
+            _store_student_profile_session(
+                request,
+                auth_result.enrollment_id,
+                display_name=profile_name,
+                email=profile_email,
+            )
+            login(request, user)
+            welcome = profile_name or auth_result.enrollment_id
+            messages.success(request, f"Welcome, {welcome}!")
+            return redirect("student_dashboard")
+
+        _bump_login_throttle(request, enrollment_id)
+        messages.error(request, auth_result.error_message or "Invalid Student Login ID or Password")
+        return redirect("student_login")
 
     return render(request, "login.html")
+
+
+def login_view(request):
+    """Legacy URL — redirect to student login."""
+    return redirect("student_login")
 
 
 @login_required
 @require_POST
 def logout_view(request):
+    was_staff = request.user.is_staff
+    _clear_student_profile_session(request)
     logout(request)
     messages.info(request, "You have been logged out.")
-    return redirect("login")
+    if was_staff:
+        return redirect("admin_login")
+    return redirect("student_login")
+
+
+@student_required
+def student_dashboard(request):
+    companies = (
+        Company.objects.filter(is_active=True)
+        .annotate(test_count=Count("tests", filter=Q(tests__status="active")))
+        .order_by("name")
+    )
+    recent_attempts = (
+        Attempt.objects.filter(user=request.user)
+        .select_related("quiz", "quiz__company")
+        .order_by("-completed_at")[:5]
+    )
+    total_attempts = Attempt.objects.filter(user=request.user).count()
+    best_score = (
+        Attempt.objects.filter(user=request.user)
+        .order_by("-marks_obtained", "-score")
+        .values_list("marks_obtained", flat=True)
+        .first()
+    )
+    upcoming_drives = (
+        Quiz.objects.filter(status="active", drive_date__gte=date.today(), company__isnull=False)
+        .select_related("company")
+        .order_by("drive_date")[:4]
+    )
+    return render(
+        request,
+        "student_dashboard.html",
+        {
+            "companies": companies,
+            "recent_attempts": recent_attempts,
+            "total_attempts": total_attempts,
+            "best_score": best_score,
+            "upcoming_drives": upcoming_drives,
+        },
+    )
 
 
 def home(request):
@@ -575,51 +740,16 @@ def company_tests(request, company_id):
 
 @require_http_methods(["GET", "POST"])
 def register(request):
-    if request.user.is_authenticated:
-        return redirect("home")
+    """Student self-registration is disabled — use college ERP credentials."""
+    messages.info(request, "Student registration is disabled. Use your college ERP login credentials.")
+    return redirect("student_login")
 
-    if request.method == "POST":
-        if _is_register_throttled(request):
-            messages.error(
-                request,
-                "Too many registration attempts from this network. Please try again later.",
-            )
-            return redirect("register")
 
-        username = (request.POST.get("username") or "").strip()
-        email = (request.POST.get("email") or "").strip()
-        password = request.POST.get("password") or ""
-        confirm = request.POST.get("confirm_password") or ""
-
-        if not username or not email:
-            messages.error(request, "Username and email are required.")
-            return redirect("register")
-
-        if password != confirm:
-            messages.error(request, "Passwords do not match.")
-            return redirect("register")
-
-        if User.objects.filter(username=username).exists():
-            messages.error(request, "Username already exists.")
-            return redirect("register")
-
-        if User.objects.filter(email__iexact=email).exists():
-            messages.error(request, "Email already exists.")
-            return redirect("register")
-
-        try:
-            validate_password(password, user=User(username=username, email=email))
-        except ValidationError as e:
-            for err in e.messages:
-                messages.error(request, err)
-            return redirect("register")
-
-        User.objects.create_user(username=username, email=email, password=password)
-        _bump_register_throttle(request)
-        messages.success(request, "Account created successfully. Please login.")
-        return redirect("login")
-
-    return render(request, "register.html")
+@require_http_methods(["GET", "POST"])
+def student_register(request):
+    """Student self-registration is disabled — use college ERP credentials."""
+    messages.info(request, "Student registration is disabled. Use your college ERP login credentials.")
+    return redirect("student_login")
 
 
 def category_quizzes(request, category_id):
@@ -634,7 +764,7 @@ def category_quizzes(request, category_id):
     )
 
 
-@login_required
+@student_required
 def start_quiz(request, quiz_id):
     blocked = _staff_quiz_blocked_response(request)
     if blocked:
@@ -654,7 +784,7 @@ def start_quiz(request, quiz_id):
     return redirect("attempt_quiz", quiz_id=quiz.id)
 
 
-@login_required
+@student_required
 def attempt_quiz(request, quiz_id):
     blocked = _staff_quiz_blocked_response(request)
     if blocked:
@@ -775,7 +905,7 @@ def attempt_quiz(request, quiz_id):
     )
 
 
-@login_required
+@student_required
 @require_POST
 def finalize_quiz(request):
     """POST-only: finish quiz when session was left in 'index >= len' state (e.g. older flow or refresh)."""
@@ -816,7 +946,7 @@ def finalize_quiz(request):
     return redirect("quiz_result", attempt_id=attempt.pk)
 
 
-@login_required
+@student_required
 def quiz_result(request, attempt_id):
     attempt = get_object_or_404(
         Attempt.objects.select_related("quiz", "quiz__company"),
@@ -861,7 +991,7 @@ def quiz_result(request, attempt_id):
     )
 
 
-@login_required
+@student_required
 def my_attempts(request):
     attempts = (
         Attempt.objects.filter(user=request.user)
@@ -871,7 +1001,7 @@ def my_attempts(request):
     return render(request, "my_attempts.html", {"attempts": attempts})
 
 
-@login_required
+@student_required
 def student_analytics(request):
     weak_topics = student_weak_topics(request.user)
     section_stats = list(student_section_performance(request.user))
@@ -887,7 +1017,7 @@ def student_analytics(request):
     )
 
 
-@login_required
+@student_required
 def ai_practice_plan(request):
     weak = [row["question__topic"] for row in student_weak_topics(request.user, limit=5)]
     company_name = (request.GET.get("company") or "").strip() or None
@@ -905,11 +1035,11 @@ def ai_practice_plan(request):
     )
 
 
-@staff_member_required
+@admin_required
 def admin_dashboard(request):
     placement = admin_placement_stats()
     context = {
-        "total_users": User.objects.count(),
+        "total_users": User.objects.filter(is_staff=False).count(),
         "total_quizzes": Quiz.objects.count(),
         "total_attempts": Attempt.objects.count(),
         "total_companies": Company.objects.filter(is_active=True).count(),
@@ -920,7 +1050,7 @@ def admin_dashboard(request):
     return render(request, "admin_dashboard.html", context)
 
 
-@staff_member_required
+@admin_required
 def admin_analytics(request):
     placement = admin_placement_stats()
     return render(
@@ -934,23 +1064,30 @@ def admin_analytics(request):
     )
 
 
-@staff_member_required
+@admin_required
 def admin_manage_users(request):
-    users = User.objects.all()
+    users = User.objects.filter(is_staff=False).order_by("username")
     return render(request, "admin_users.html", {"users": users})
 
 
-@staff_member_required
+@admin_required
 def admin_manage_quizzes(request):
     quizzes = (
         Quiz.objects.select_related("company", "category")
         .annotate(question_count=Count("question"))
         .order_by("-created_at")
     )
-    return render(request, "admin_quizzes.html", {"quizzes": quizzes})
+    level = (request.GET.get("level") or "").strip()
+    if level in dict(Quiz.DIFFICULTY_CHOICES):
+        quizzes = quizzes.filter(difficulty=level)
+    return render(
+        request,
+        "admin_quizzes.html",
+        {"quizzes": quizzes, "selected_level": level},
+    )
 
 
-@staff_member_required
+@admin_required
 def admin_add_quiz(request):
     companies = Company.objects.filter(is_active=True).order_by("name")
     if request.method == "POST":
@@ -981,7 +1118,7 @@ def admin_add_quiz(request):
     )
 
 
-@staff_member_required
+@admin_required
 def admin_edit_quiz(request, quiz_id):
     quiz = get_object_or_404(Quiz, id=quiz_id)
     companies = Company.objects.filter(is_active=True).order_by("name")
@@ -1010,7 +1147,7 @@ def admin_edit_quiz(request, quiz_id):
     )
 
 
-@staff_member_required
+@admin_required
 @require_POST
 def admin_delete_quiz(request, quiz_id):
     quiz = get_object_or_404(Quiz, id=quiz_id)
@@ -1019,7 +1156,7 @@ def admin_delete_quiz(request, quiz_id):
     return redirect("admin_manage_quizzes")
 
 
-@staff_member_required
+@admin_required
 def admin_quiz_questions(request, quiz_id):
     quiz = get_object_or_404(Quiz, id=quiz_id)
     questions = quiz.question_set.prefetch_related("options").all()
@@ -1030,7 +1167,7 @@ def admin_quiz_questions(request, quiz_id):
     )
 
 
-@staff_member_required
+@admin_required
 def admin_add_question(request, quiz_id):
     quiz = get_object_or_404(Quiz, id=quiz_id)
 
@@ -1065,7 +1202,7 @@ def admin_add_question(request, quiz_id):
     )
 
 
-@staff_member_required
+@admin_required
 def admin_edit_question(request, question_id):
     question = get_object_or_404(Question.objects.prefetch_related("options"), pk=question_id)
     quiz = question.quiz
@@ -1107,7 +1244,7 @@ def admin_edit_question(request, question_id):
     )
 
 
-@staff_member_required
+@admin_required
 @require_POST
 def admin_delete_question(request, question_id):
     question = get_object_or_404(Question, pk=question_id)
@@ -1117,7 +1254,7 @@ def admin_delete_question(request, question_id):
     return redirect("admin_quiz_questions", quiz_id=quiz_id)
 
 
-@staff_member_required
+@admin_required
 def admin_ai_generate_questions(request, quiz_id):
     quiz = get_object_or_404(Quiz.objects.select_related("company"), pk=quiz_id)
 
@@ -1140,7 +1277,7 @@ def admin_ai_generate_questions(request, quiz_id):
     return render(request, "admin_ai_generate.html", {"quiz": quiz})
 
 
-@staff_member_required
+@admin_required
 def upload_quizzes_csv(request):
     if request.method == "POST":
         if "csv_file" not in request.FILES:
@@ -1181,7 +1318,7 @@ def upload_quizzes_csv(request):
     return render(request, "admin_upload_quizzes.html")
 
 
-@staff_member_required
+@admin_required
 def admin_add_user(request):
     if request.method == "POST":
         username = (request.POST.get("username") or "").strip()
@@ -1203,14 +1340,14 @@ def admin_add_user(request):
                 messages.error(request, err)
             return redirect("admin_add_user")
 
-        User.objects.create_user(username=username, email=email, password=password)
+        User.objects.create_user(username=username, email=email, password=password, is_staff=False)
         messages.success(request, "User created successfully.")
         return redirect("admin_manage_users")
 
     return render(request, "admin_add_user.html")
 
 
-@staff_member_required
+@admin_required
 @require_POST
 def delete_user(request, user_id):
     if user_id == request.user.id:
@@ -1227,7 +1364,7 @@ def delete_user(request, user_id):
     return redirect("admin_manage_users")
 
 
-@staff_member_required
+@admin_required
 def upload_users_csv(request):
     if request.method == "POST":
         if "csv_file" not in request.FILES:
@@ -1266,7 +1403,7 @@ def upload_users_csv(request):
                 except ValidationError:
                     continue
 
-                User.objects.create_user(username=username, email=email, password=password)
+                User.objects.create_user(username=username, email=email, password=password, is_staff=False)
                 created += 1
 
         messages.success(request, f"Users uploaded successfully ({created} added).")
@@ -1275,7 +1412,7 @@ def upload_users_csv(request):
     return render(request, "admin_upload_users.html")
 
 
-@staff_member_required
+@admin_required
 def edit_user(request, user_id):
     user = get_object_or_404(User, id=user_id)
     if user.is_superuser and not request.user.is_superuser:
@@ -1312,3 +1449,131 @@ def edit_user(request, user_id):
         return redirect("admin_manage_users")
 
     return render(request, "admin_edit_user.html", {"user": user})
+
+
+@admin_required
+def admin_manage_companies(request):
+    companies = (
+        Company.objects.annotate(test_count=Count("tests"))
+        .order_by("name")
+    )
+    return render(request, "admin_companies.html", {"companies": companies})
+
+
+@admin_required
+def admin_add_company(request):
+    if request.method == "POST":
+        name = (request.POST.get("name") or "").strip()
+        description = (request.POST.get("description") or "").strip()
+        is_active = request.POST.get("is_active") == "on"
+
+        if not name:
+            messages.error(request, "Company name is required.")
+            return redirect("admin_add_company")
+
+        if Company.objects.filter(name__iexact=name).exists():
+            messages.error(request, "A company with this name already exists.")
+            return redirect("admin_add_company")
+
+        company = Company.objects.create(
+            name=name,
+            description=description,
+            is_active=is_active,
+        )
+        if request.FILES.get("logo"):
+            company.logo = request.FILES["logo"]
+            company.save(update_fields=["logo"])
+
+        messages.success(request, "Company created successfully.")
+        return redirect("admin_manage_companies")
+
+    return render(request, "admin_add_company.html")
+
+
+@admin_required
+def admin_edit_company(request, company_id):
+    company = get_object_or_404(Company, pk=company_id)
+
+    if request.method == "POST":
+        name = (request.POST.get("name") or "").strip()
+        description = (request.POST.get("description") or "").strip()
+        is_active = request.POST.get("is_active") == "on"
+
+        if not name:
+            messages.error(request, "Company name is required.")
+            return redirect("admin_edit_company", company_id=company.id)
+
+        if Company.objects.filter(name__iexact=name).exclude(pk=company.pk).exists():
+            messages.error(request, "A company with this name already exists.")
+            return redirect("admin_edit_company", company_id=company.id)
+
+        company.name = name
+        company.description = description
+        company.is_active = is_active
+        if request.FILES.get("logo"):
+            company.logo = request.FILES["logo"]
+        company.save()
+
+        messages.success(request, "Company updated successfully.")
+        return redirect("admin_manage_companies")
+
+    return render(request, "admin_add_company.html", {"company": company})
+
+
+@admin_required
+@require_POST
+def admin_delete_company(request, company_id):
+    company = get_object_or_404(Company, pk=company_id)
+    company.delete()
+    messages.success(request, "Company deleted.")
+    return redirect("admin_manage_companies")
+
+
+@admin_required
+def admin_manage_test_levels(request):
+    levels = []
+    for value, label in Quiz.DIFFICULTY_CHOICES:
+        levels.append(
+            {
+                "value": value,
+                "label": label,
+                "quiz_count": Quiz.objects.filter(difficulty=value).count(),
+                "active_count": Quiz.objects.filter(difficulty=value, status="active").count(),
+            }
+        )
+    return render(request, "admin_test_levels.html", {"levels": levels})
+
+
+@admin_required
+def admin_manage_results(request):
+    attempts = Attempt.objects.select_related("user", "quiz", "quiz__company").order_by(
+        "-completed_at"
+    )
+
+    company_id = (request.GET.get("company") or "").strip()
+    if company_id.isdigit():
+        attempts = attempts.filter(quiz__company_id=int(company_id))
+
+    difficulty = (request.GET.get("level") or "").strip()
+    if difficulty in dict(Quiz.DIFFICULTY_CHOICES):
+        attempts = attempts.filter(quiz__difficulty=difficulty)
+
+    student_query = (request.GET.get("student") or "").strip()
+    if student_query:
+        attempts = attempts.filter(
+            Q(user__username__icontains=student_query) | Q(user__email__icontains=student_query)
+        )
+
+    companies = Company.objects.filter(is_active=True).order_by("name")
+    return render(
+        request,
+        "admin_results.html",
+        {
+            "attempts": attempts[:200],
+            "companies": companies,
+            "selected_company": company_id,
+            "selected_level": difficulty,
+            "student_query": student_query,
+            "difficulty_choices": Quiz.DIFFICULTY_CHOICES,
+        },
+    )

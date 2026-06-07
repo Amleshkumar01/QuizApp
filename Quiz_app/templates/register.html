@@ -1,5 +1,5 @@
 {% extends 'base.html' %}
-{% block title %}Register | Quiz App{% endblock %}
+{% block title %}Student Register | PlacementIQ{% endblock %}
 {% block content %}
 <div class="content-wrapper auth-card">
     <h2 class="text-center fw-bold mb-4"><i class="bi bi-person-plus me-2"></i>Register</h2>
@@ -24,7 +24,7 @@
         <button type="submit" class="btn btn-primary w-100 py-2">Create account</button>
     </form>
     <p class="text-center text-muted mt-3 mb-0">
-        Already registered? <a href="{% url 'login' %}">Login here</a>
+        Already registered? <a href="{% url 'student_login' %}">Login here</a>
     </p>
 </div>
 {% endblock %}

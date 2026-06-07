@@ -18,7 +18,7 @@
 
     <nav class="navbar navbar-expand-lg navbar-dark app-navbar fixed-top">
         <div class="container-xl">
-            <a class="navbar-brand" href="{% url 'home' %}">
+            <a class="navbar-brand" href="{% if user.is_authenticated and user.is_staff %}{% url 'admin_dashboard' %}{% elif user.is_authenticated %}{% url 'student_dashboard' %}{% else %}{% url 'home' %}{% endif %}">
                 <i class="bi bi-mortarboard-fill me-1"></i> PlacementIQ
             </a>
             <button class="navbar-toggler border-0" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav"
@@ -29,11 +29,23 @@
                 <ul class="navbar-nav ms-auto align-items-lg-center gap-lg-1">
                     {% if user.is_authenticated %}
                         <li class="nav-item">
-                            <span class="nav-link nav-user-pill">
-                                <i class="bi bi-person-circle me-1"></i>{{ user.username }}
+                            <span class="nav-link nav-user-pill d-flex flex-column align-items-start align-items-lg-end py-1">
+                                <span>
+                                    <i class="bi bi-person-circle me-1"></i>
+                                    {% if not user.is_staff %}
+                                        {{ student_display_name|default:student_enrollment_id|default:user.username }}
+                                    {% else %}
+                                        {{ user.username }}
+                                    {% endif %}
+                                </span>
                             </span>
                         </li>
                         {% if not user.is_staff %}
+                        <li class="nav-item">
+                            <a class="nav-link" href="{% url 'student_dashboard' %}">
+                                <i class="bi bi-house-door me-1"></i><span class="nav-text">Dashboard</span>
+                            </a>
+                        </li>
                         <li class="nav-item">
                             <a class="nav-link" href="{% url 'my_attempts' %}">
                                 <i class="bi bi-clock-history me-1"></i><span class="nav-text">My Attempts</span>
@@ -62,13 +74,13 @@
                         </li>
                     {% else %}
                         <li class="nav-item">
-                            <a class="nav-link" href="{% url 'login' %}">
-                                <i class="bi bi-box-arrow-in-right me-1"></i>Login
+                            <a class="nav-link" href="{% url 'student_login' %}">
+                                <i class="bi bi-mortarboard me-1"></i>Student Login
                             </a>
                         </li>
                         <li class="nav-item">
-                            <a class="nav-link btn-nav-register ms-lg-2" href="{% url 'register' %}">
-                                <i class="bi bi-person-plus me-1"></i>Register
+                            <a class="nav-link text-warning ms-lg-1" href="{% url 'admin_login' %}">
+                                <i class="bi bi-shield-lock me-1"></i>Admin Login
                             </a>
                         </li>
                     {% endif %}
@@ -114,11 +126,8 @@
                         <h6 class="footer-heading">Explore</h6>
                         <ul class="footer-links">
                             <li><a href="{% url 'home' %}"><i class="bi bi-house-door"></i> Home</a></li>
-                            {% if user.is_authenticated %}
+                            {% if user.is_authenticated and not user.is_staff %}
                             <li><a href="{% url 'my_attempts' %}"><i class="bi bi-clock-history"></i> My Attempts</a></li>
-                            {% else %}
-                            <li><a href="{% url 'login' %}"><i class="bi bi-box-arrow-in-right"></i> Login</a></li>
-                            <li><a href="{% url 'register' %}"><i class="bi bi-person-plus"></i> Register</a></li>
                             {% endif %}
                         </ul>
                     </div>

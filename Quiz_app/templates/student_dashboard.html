@@ -1,0 +1,113 @@
+{% extends 'base.html' %}
+{% block title %}Student Dashboard | PlacementIQ{% endblock %}
+{% block content %}
+<div class="content-wrapper mb-4 profile-banner">
+    <div class="d-flex align-items-center gap-3 flex-wrap">
+        <div class="profile-avatar rounded-circle bg-primary bg-opacity-10 text-primary d-flex align-items-center justify-content-center" style="width: 56px; height: 56px;">
+            <i class="bi bi-person-fill fs-4"></i>
+        </div>
+        <div>
+            <h5 class="fw-bold mb-1 text-primary">{{ student_display_name|default:"Student" }}</h5>
+            <p class="mb-0">
+                <span class="text-muted">Enrollment / Login ID:</span>
+                <strong>{{ student_enrollment_id|default:user.username }}</strong>
+            </p>
+            {% if student_email %}
+            <p class="mb-0 text-muted small">Email: {{ student_email }}</p>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-2">
+    <div>
+        <h2 class="fw-bold mb-1"><i class="bi bi-speedometer2 me-2"></i>Student Dashboard</h2>
+        <p class="text-muted mb-0">Pick a company and start practicing.</p>
+    </div>
+    <div class="d-flex gap-2">
+        <a href="{% url 'my_attempts' %}" class="btn btn-outline-primary btn-sm">My Results</a>
+        <a href="{% url 'student_analytics' %}" class="btn btn-outline-secondary btn-sm">Performance</a>
+    </div>
+</div>
+
+<div class="row g-3 mb-4">
+    <div class="col-md-4">
+        <div class="admin-stat-card primary">
+            <div class="small opacity-75">Tests Taken</div>
+            <div class="display-6 fw-bold">{{ total_attempts }}</div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="admin-stat-card success">
+            <div class="small opacity-75">Best Marks</div>
+            <div class="display-6 fw-bold">{{ best_score|default:"0" }}</div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="admin-stat-card info">
+            <div class="small opacity-75">Companies</div>
+            <div class="display-6 fw-bold">{{ companies|length }}</div>
+        </div>
+    </div>
+</div>
+
+{% if recent_attempts %}
+<div class="content-wrapper mb-4">
+    <h5 class="fw-bold mb-3"><i class="bi bi-clock-history me-2"></i>Recent Results</h5>
+    <div class="table-responsive">
+        <table class="table table-sm align-middle mb-0">
+            <thead>
+                <tr>
+                    <th>Test</th>
+                    <th>Company</th>
+                    <th>Score</th>
+                    <th>Marks</th>
+                    <th>Date</th>
+                    <th></th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for attempt in recent_attempts %}
+                <tr>
+                    <td>{{ attempt.quiz.title }}</td>
+                    <td>{{ attempt.quiz.company.name|default:"—" }}</td>
+                    <td>{{ attempt.score }}/{{ attempt.total }}</td>
+                    <td>{{ attempt.marks_obtained }}</td>
+                    <td>{{ attempt.completed_at|date:"d M Y" }}</td>
+                    <td><a href="{% url 'quiz_result' attempt.id %}" class="btn btn-sm btn-outline-primary">View</a></td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endif %}
+
+<h4 class="fw-bold mb-3">Select Company &amp; Start Test</h4>
+<div class="row g-4">
+    {% for company in companies %}
+    <div class="col-sm-6 col-lg-4 col-xl-3">
+        <div class="card category-card h-100">
+            <div class="card-body text-center p-4">
+                {% if company.logo %}
+                    <img src="{{ company.logo.url }}" alt="{{ company.name }}" class="mb-3 rounded" style="height: 80px; object-fit: contain;">
+                {% else %}
+                    <div class="rounded-3 bg-light d-flex align-items-center justify-content-center mb-3 mx-auto" style="height: 80px; width: 80px;">
+                        <span class="fw-bold text-primary fs-4">{{ company.name|slice:":1" }}</span>
+                    </div>
+                {% endif %}
+                <h5 class="card-title fw-bold">{{ company.name }}</h5>
+                <p class="text-muted small">{{ company.test_count }} active test{{ company.test_count|pluralize }}</p>
+                <a href="{% url 'company_tests' company.id %}?section=aptitude&level=medium" class="btn btn-primary mt-2">
+                    <i class="bi bi-play-fill me-1"></i>Start Practice
+                </a>
+            </div>
+        </div>
+    </div>
+    {% empty %}
+    <div class="col-12">
+        <div class="content-wrapper text-center text-muted">No companies available yet.</div>
+    </div>
+    {% endfor %}
+</div>
+{% endblock %}

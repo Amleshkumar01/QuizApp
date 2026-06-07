@@ -1,0 +1,23 @@
+{% extends 'base.html' %}
+{% block title %}Admin Login | PlacementIQ{% endblock %}
+{% block content %}
+<div class="content-wrapper auth-card">
+    <h2 class="text-center fw-bold mb-2"><i class="bi bi-shield-lock-fill me-2 text-danger"></i>Admin Login</h2>
+    <p class="text-center text-muted mb-4">Authorized administrators only. Students should use the <a href="{% url 'student_login' %}">student login</a>.</p>
+    <form method="post" novalidate>
+        {% csrf_token %}
+        <div class="mb-3">
+            <label class="form-label">Admin Username</label>
+            <input autocomplete="username" type="text" name="username" required class="form-control" placeholder="Enter admin username">
+        </div>
+        <div class="mb-4">
+            <label class="form-label">Password</label>
+            <input autocomplete="current-password" type="password" name="password" required class="form-control" placeholder="Enter password">
+        </div>
+        <button type="submit" class="btn btn-danger w-100 py-2">Sign in to Admin Portal</button>
+    </form>
+    <p class="text-center text-muted mt-3 mb-0">
+        <a href="{% url 'home' %}"><i class="bi bi-arrow-left me-1"></i>Back to home</a>
+    </p>
+</div>
+{% endblock %}
