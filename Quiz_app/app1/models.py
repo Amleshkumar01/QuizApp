@@ -1,20 +1,27 @@
 from decimal import Decimal
+import uuid
 
 from django.db import models
 from django.contrib.auth.models import User
 from django.utils.text import slugify
 
 
-class Register(models.Model):
-    """Legacy model — do not use for auth. Passwords here are stored in plain text."""
+class SupabaseUserMapping(models.Model):
+    """
+    Links a Supabase Auth user (UUID) to a local Django User.
+    The Django User exists as a shadow for FK relationships (Attempt, Answer, etc.).
+    Supabase Auth is the source of truth for authentication.
+    """
+    user = models.OneToOneField(User, on_delete=models.CASCADE, related_name="supabase_mapping")
+    supabase_user_id = models.UUIDField(unique=True, db_index=True)
+    created_at = models.DateTimeField(auto_now_add=True)
 
-    username = models.CharField(max_length=30)
-    Email = models.CharField(max_length=34)
-    password = models.CharField(max_length=12)
-    Conf_pass = models.CharField(max_length=12)
+    class Meta:
+        verbose_name = "Supabase User Mapping"
+        verbose_name_plural = "Supabase User Mappings"
 
     def __str__(self):
-        return self.username
+        return f"{self.user.username} → {self.supabase_user_id}"
 
 
 class Company(models.Model):

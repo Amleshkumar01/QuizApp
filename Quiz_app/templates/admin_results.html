@@ -1,12 +1,15 @@
 {% extends 'base.html' %}
 {% block title %}Student Results | PlacementIQ{% endblock %}
 {% block content %}
-<div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-2">
+<div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-2 fade-in-up">
     <h2 class="fw-bold mb-0"><i class="bi bi-clipboard-data me-2"></i>Student Results</h2>
-    <a href="{% url 'admin_dashboard' %}" class="btn btn-outline-secondary btn-sm">Dashboard</a>
+    <div class="d-flex gap-2">
+        <a href="{% url 'admin_export_results' %}?company={{ selected_company }}&level={{ selected_level }}&student={{ student_query }}" class="btn btn-outline-primary btn-sm"><i class="bi bi-download me-1"></i>Export CSV</a>
+        <a href="{% url 'admin_dashboard' %}" class="btn btn-outline-secondary btn-sm">Dashboard</a>
+    </div>
 </div>
 
-<div class="content-wrapper mb-4">
+<div class="content-wrapper mb-4 fade-in-up fade-in-up-delay-1">
     <form method="get" class="row g-2 align-items-end">
         <div class="col-md-3">
             <label class="form-label small">Company</label>
@@ -36,37 +39,44 @@
     </form>
 </div>
 
-<div class="content-wrapper">
+<div class="content-wrapper fade-in-up fade-in-up-delay-2">
     <div class="table-responsive">
-        <table class="table table-sm align-middle">
+        <table class="table table-sm align-middle mb-0">
             <thead>
                 <tr>
-                    <th>Student Name</th>
-                    <th>Enrollment ID</th>
-                    <th>Email</th>
+                    <th>Student</th>
+                    <th>Username</th>
                     <th>Test</th>
                     <th>Company</th>
-                    <th>Level</th>
                     <th>Score</th>
                     <th>Marks</th>
-                    <th>Completed</th>
+                    <th>Date</th>
+                    <th></th>
                 </tr>
             </thead>
             <tbody>
                 {% for attempt in attempts %}
                 <tr>
-                    <td>{{ attempt.user.first_name|default:"—" }}</td>
+                    <td>
+                        <a href="{% url 'admin_student_detail' attempt.user.id %}" class="text-decoration-none fw-semibold">
+                            {{ attempt.user.first_name|default:attempt.user.username }}
+                        </a>
+                    </td>
                     <td><code>{{ attempt.user.username }}</code></td>
-                    <td>{{ attempt.user.email|default:"—" }}</td>
-                    <td>{{ attempt.quiz.title }}</td>
+                    <td>{{ attempt.quiz.title|truncatechars:30 }}</td>
                     <td>{{ attempt.quiz.company.name|default:"—" }}</td>
-                    <td>{{ attempt.quiz.get_difficulty_display }}</td>
-                    <td>{{ attempt.score }}/{{ attempt.total }}</td>
+                    <td class="fw-bold">{{ attempt.score }}/{{ attempt.total }}</td>
                     <td>{{ attempt.marks_obtained }}</td>
-                    <td>{{ attempt.completed_at|date:"d M Y H:i" }}</td>
+                    <td class="small" style="color:var(--muted);">{{ attempt.completed_at|date:"d M Y H:i" }}</td>
+                    <td>
+                        <form method="post" action="{% url 'admin_delete_attempt' attempt.id %}" class="d-inline" onsubmit="return confirm('Delete this result?');">
+                            {% csrf_token %}
+                            <button class="btn btn-danger btn-sm" type="submit">Del</button>
+                        </form>
+                    </td>
                 </tr>
                 {% empty %}
-                <tr><td colspan="9" class="text-muted">No results found.</td></tr>
+                <tr><td colspan="8" style="color:var(--muted);">No results found.</td></tr>
                 {% endfor %}
             </tbody>
         </table>

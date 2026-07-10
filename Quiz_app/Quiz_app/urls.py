@@ -9,6 +9,7 @@ from django.conf.urls.static import static
 from django.urls import path
 
 from app1 import views
+from app1 import supabase_auth
 
 urlpatterns = [
     # Custom admin portal — listed before path('admin/', ...) so routes are not swallowed.
@@ -37,21 +38,35 @@ urlpatterns = [
     path("admin/quizzes/<int:quiz_id>/ai-generate/", views.admin_ai_generate_questions, name="admin_ai_generate"),
     path("admin/analytics/", views.admin_analytics, name="admin_analytics"),
 
+    # Admin full control — additional routes
+    path("admin/results/delete/<int:attempt_id>/", views.admin_delete_attempt, name="admin_delete_attempt"),
+    path("admin/results/export/", views.admin_export_results, name="admin_export_results"),
+    path("admin/students/<int:user_id>/", views.admin_student_detail, name="admin_student_detail"),
+    path("admin/students/<int:user_id>/reset-password/", views.admin_reset_password, name="admin_reset_password"),
+    path("admin/categories/", views.admin_manage_categories, name="admin_manage_categories"),
+    path("admin/categories/add/", views.admin_add_category, name="admin_add_category"),
+    path("admin/categories/edit/<int:category_id>/", views.admin_edit_category, name="admin_edit_category"),
+    path("admin/categories/delete/<int:category_id>/", views.admin_delete_category, name="admin_delete_category"),
+    path("admin/users/bulk-delete/", views.admin_bulk_delete_users, name="admin_bulk_delete_users"),
+    path("admin/quizzes/bulk-status/", views.admin_bulk_quiz_status, name="admin_bulk_quiz_status"),
+    path("admin/settings/", views.admin_site_settings, name="admin_site_settings"),
+
     # Block default Django admin login at /admin/ (must be after all other /admin/... routes).
     path("admin/", views.django_admin_blocked, name="django_admin_blocked"),
 
-    # Student portal
-    path("student/login/", views.student_login_view, name="student_login"),
-    path("student/register/", views.student_register, name="student_register"),
+    # Student portal (Supabase Auth)
+    path("student/login/", supabase_auth.supabase_login_view, name="student_login"),
+    path("student/register/", supabase_auth.supabase_register_view, name="student_register"),
     path("student/dashboard/", views.student_dashboard, name="student_dashboard"),
 
     # Legacy auth URLs (redirects)
     path("login/", views.login_view, name="login"),
     path("register/", views.register, name="register"),
+    path("signup/", supabase_auth.supabase_register_view, name="signup"),
 
     path("", views.home, name="home"),
     path("company/<int:company_id>/", views.company_tests, name="company_tests"),
-    path("logout/", views.logout_view, name="logout"),
+    path("logout/", supabase_auth.supabase_logout_view, name="logout"),
     path("category/<int:category_id>/", views.category_quizzes, name="category_quizzes"),
     path("quiz/<int:quiz_id>/start/", views.start_quiz, name="start_quiz"),
     path("quiz/attempt/<int:quiz_id>/", views.attempt_quiz, name="attempt_quiz"),

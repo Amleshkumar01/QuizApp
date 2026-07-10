@@ -1,26 +1,160 @@
 {% extends 'base.html' %}
-{% block title %}Home | PlacementIQ{% endblock %}
+{% block title %}PlacementIQ — Campus Placement Preparation{% endblock %}
 {% block content %}
-<div class="hero-banner text-center">
-    <h1 class="display-5 mb-2">PlacementIQ</h1>
-    <p class="lead mb-0 opacity-90">Company-specific campus placement practice — Aptitude, Reasoning, English, Coding &amp; Technical.</p>
+
+<!-- Hero -->
+<div class="hero-banner fade-in-up">
+    <div class="hero-copy">
+        <div class="eyebrow">
+            <i class="bi bi-stars"></i> Placement practice workspace
+        </div>
+        <h1>Practice smarter for campus placements</h1>
+        <p>
+            Company-wise tests, timed questions, analytics and AI practice plans in one clean dashboard.
+        </p>
+        <div class="hero-actions">
+            {% if user.is_authenticated and not user.is_staff %}
+            <a href="{% url 'student_dashboard' %}" class="btn btn-primary">
+                <i class="bi bi-speedometer2 me-1"></i>Open Dashboard
+            </a>
+            <a href="{% url 'ai_practice_plan' %}" class="btn btn-outline-primary">
+                <i class="bi bi-robot me-1"></i>AI Practice Plan
+            </a>
+            {% elif user.is_authenticated and user.is_staff %}
+            <a href="{% url 'admin_dashboard' %}" class="btn btn-primary">
+                <i class="bi bi-speedometer2 me-1"></i>Open Admin
+            </a>
+            {% else %}
+            <a href="{% url 'student_register' %}" class="btn btn-primary">
+                <i class="bi bi-person-plus me-1"></i>Start Free
+            </a>
+            <a href="{% url 'student_login' %}" class="btn btn-outline-primary">
+                <i class="bi bi-box-arrow-in-right me-1"></i>Sign In
+            </a>
+            {% endif %}
+        </div>
+        <div class="trust-badges">
+            <span class="trust-badge"><i class="bi bi-lightning-charge-fill"></i> AI-Powered</span>
+            <span class="trust-badge"><i class="bi bi-building"></i> Company-Specific</span>
+            <span class="trust-badge"><i class="bi bi-bar-chart-fill"></i> Track Progress</span>
+        </div>
+        <div class="hero-metrics">
+            <div>
+                <strong>{{ companies|length }}+</strong>
+                <span>Companies</span>
+            </div>
+            <div>
+                <strong>5</strong>
+                <span>Sections</span>
+            </div>
+            <div>
+                <strong>AI</strong>
+                <span>Practice plan</span>
+            </div>
+        </div>
+    </div>
+    <div class="hero-visual" aria-hidden="true">
+        <div class="floating-card floating-card-score">
+            <i class="bi bi-graph-up-arrow"></i>
+            <div>
+                <strong>+18%</strong>
+                <span>Weekly growth</span>
+            </div>
+        </div>
+        <div class="hero-preview">
+            <div class="preview-top">
+                <span class="preview-pill">Aptitude</span>
+                <span class="preview-time"><i class="bi bi-stopwatch"></i> 18:42</span>
+            </div>
+            <div class="preview-question">A train crosses a platform in 36 seconds. What is its relative speed?</div>
+            <div class="preview-options">
+                <span></span>
+                <span class="active"></span>
+                <span></span>
+            </div>
+            <div class="preview-footer">
+                <div>
+                    <strong>72%</strong>
+                    <small>Accuracy</small>
+                </div>
+                <div>
+                    <strong>24</strong>
+                    <small>Questions</small>
+                </div>
+                <div>
+                    <strong>AI</strong>
+                    <small>Review</small>
+                </div>
+            </div>
+        </div>
+        <div class="floating-card floating-card-ai">
+            <i class="bi bi-robot"></i>
+            <div>
+                <strong>3 weak topics</strong>
+                <span>Plan ready</span>
+            </div>
+        </div>
+    </div>
 </div>
 
+<!-- Features Row -->
+<div class="section-heading fade-in-up fade-in-up-delay-1">
+    <span>Why PlacementIQ</span>
+    <h2>Everything students need before the test day</h2>
+</div>
+<div class="row g-3 mb-4 fade-in-up fade-in-up-delay-1">
+    <div class="col-6 col-md-3">
+        <div class="feature-card">
+            <div class="feature-icon purple"><i class="bi bi-building"></i></div>
+            <h6 class="fw-bold mb-1">Company Tests</h6>
+            <p class="text-muted mb-0">Real patterns from top recruiters</p>
+        </div>
+    </div>
+    <div class="col-6 col-md-3">
+        <div class="feature-card">
+            <div class="feature-icon blue"><i class="bi bi-robot"></i></div>
+            <h6 class="fw-bold mb-1">AI Questions</h6>
+            <p class="text-muted mb-0">Fresh questions generated for you</p>
+        </div>
+    </div>
+    <div class="col-6 col-md-3">
+        <div class="feature-card">
+            <div class="feature-icon green"><i class="bi bi-graph-up-arrow"></i></div>
+            <h6 class="fw-bold mb-1">Analytics</h6>
+            <p class="text-muted mb-0">Know your weak areas instantly</p>
+        </div>
+    </div>
+    <div class="col-6 col-md-3">
+        <div class="feature-card">
+            <div class="feature-icon orange"><i class="bi bi-stopwatch"></i></div>
+            <h6 class="fw-bold mb-1">Timed Mode</h6>
+            <p class="text-muted mb-0">Simulate real exam pressure</p>
+        </div>
+    </div>
+</div>
+
+<!-- Upcoming Drives -->
 {% if upcoming_drives %}
-<div class="content-wrapper mb-4">
-    <h5 class="fw-bold mb-3"><i class="bi bi-calendar-event me-2"></i>Upcoming Campus Drives</h5>
+<div class="content-wrapper mb-4 fade-in-up fade-in-up-delay-2">
+    <div class="d-flex align-items-center justify-content-between mb-3">
+        <h5 class="fw-bold mb-0"><i class="bi bi-calendar-event me-2 text-primary"></i>Upcoming Campus Drives</h5>
+    </div>
     <div class="row g-3">
         {% for test in upcoming_drives %}
         <div class="col-md-6 col-lg-4">
             <div class="card quiz-card h-100">
-                <div class="card-body">
-                    <span class="badge bg-primary mb-2">{{ test.company.name }}</span>
-                    <h6 class="fw-bold">{{ test.title }}</h6>
+                <div class="card-body p-3">
+                    <div class="d-flex align-items-center gap-2 mb-2">
+                        <span class="badge" style="background: var(--primary-soft); color: var(--primary-dark);">{{ test.company.name }}</span>
+                        <span class="badge" style="background: var(--warning-soft); color: var(--warning);">{{ test.drive_date|date:"d M" }}</span>
+                    </div>
+                    <h6 class="fw-bold mb-1" style="font-size: 0.9rem;">{{ test.title }}</h6>
                     <p class="text-muted small mb-2">
-                        {{ test.get_section_display }} · {{ test.get_difficulty_display }} ·
-                        Drive: {{ test.drive_date|date:"d M Y" }}
+                        {{ test.get_section_display }} &middot; {{ test.get_difficulty_display }}
                     </p>
-                    <a href="{% url 'company_tests' test.company.id %}?section={{ test.section }}&level={{ test.difficulty }}" class="btn btn-sm btn-outline-primary">Practice</a>
+                    <a href="{% url 'company_tests' test.company.id %}?section={{ test.section }}&level={{ test.difficulty }}" class="btn btn-sm btn-outline-primary">
+                        <i class="bi bi-play-fill me-1"></i>Practice Now
+                    </a>
                 </div>
             </div>
         </div>
@@ -29,55 +163,72 @@
 </div>
 {% endif %}
 
-<h4 class="fw-bold mb-3">Select Company</h4>
-<div class="row g-4">
-    {% for company in companies %}
-    <div class="col-sm-6 col-lg-4 col-xl-3">
-        <div class="card category-card h-100">
-            <div class="card-body text-center p-4">
-                {% if company.logo %}
-                    <img src="{{ company.logo.url }}" alt="{{ company.name }}" class="mb-3 rounded" style="height: 80px; object-fit: contain;">
-                {% else %}
-                    <div class="rounded-3 bg-light d-flex align-items-center justify-content-center mb-3 mx-auto" style="height: 80px; width: 80px;">
-                        <span class="fw-bold text-primary fs-4">{{ company.name|slice:":1" }}</span>
+<!-- Companies -->
+<div class="companies-section fade-in-up fade-in-up-delay-3">
+    <div class="app-section-title">
+        <div>
+            <span class="section-kicker">Practice library</span>
+            <h4>Select a Company</h4>
+        </div>
+        <span class="text-muted small">{{ companies|length }} available</span>
+    </div>
+    <div class="row g-3">
+        {% for company in companies %}
+        <div class="col-6 col-md-4 col-lg-3">
+            <a href="{% url 'company_tests' company.id %}?section=aptitude&level=medium" class="text-decoration-none">
+                <div class="card category-card h-100">
+                    <div class="card-body text-center p-3">
+                        {% if company.logo %}
+                            <img src="{{ company.logo.url }}" alt="{{ company.name }}" class="company-card-logo mb-2">
+                        {% else %}
+                            <div class="company-logo-placeholder">
+                                <span>{{ company.name|slice:":2"|upper }}</span>
+                            </div>
+                        {% endif %}
+                        <h6 class="fw-bold mb-1 text-dark">{{ company.name }}</h6>
+                        <p class="text-muted mb-0">{{ company.test_count }} test{{ company.test_count|pluralize }}</p>
                     </div>
-                {% endif %}
-                <h5 class="card-title fw-bold">{{ company.name }}</h5>
-                <p class="text-muted small">{{ company.test_count }} active test{{ company.test_count|pluralize }}</p>
-                <a href="{% url 'company_tests' company.id %}?section=aptitude&level=medium" class="btn btn-primary mt-2">
-                    <i class="bi bi-play-fill me-1"></i>Start Practice
-                </a>
+                </div>
+            </a>
+        </div>
+        {% empty %}
+        <div class="col-12">
+            <div class="empty-state">
+                <i class="bi bi-building display-4 text-muted d-block mb-3"></i>
+                <h5 class="fw-bold text-muted">No companies yet</h5>
+                <p class="text-muted small">Run <code>python manage.py seed_placement_data</code> to get started.</p>
             </div>
         </div>
+        {% endfor %}
     </div>
-    {% empty %}
-    <div class="col-12">
-        <div class="content-wrapper text-center text-muted">
-            <i class="bi bi-building display-4 d-block mb-2"></i>
-            No companies yet. Run: <code>python manage.py seed_placement_data</code>
-        </div>
-    </div>
-    {% endfor %}
 </div>
 
+<!-- Quick Links for logged-in students -->
 {% if user.is_authenticated and not user.is_staff %}
-<div class="row g-3 mt-2">
+<div class="row g-3 mt-4">
     <div class="col-md-6">
-        <a href="{% url 'student_analytics' %}" class="card quiz-card text-decoration-none text-dark h-100">
-            <div class="card-body p-4">
-                <h5 class="fw-bold"><i class="bi bi-graph-up me-2 text-primary"></i>My Performance</h5>
-                <p class="text-muted mb-0 small">Weak topics, section scores, suggested tests</p>
+        <a href="{% url 'student_analytics' %}" class="card quiz-card text-decoration-none h-100">
+            <div class="card-body p-4 d-flex align-items-start gap-3">
+                <div class="feature-icon purple flex-shrink-0"><i class="bi bi-graph-up"></i></div>
+                <div>
+                    <h6 class="fw-bold text-dark mb-1">My Performance</h6>
+                    <p class="text-muted mb-0 small">Weak topics, section scores, and suggested tests</p>
+                </div>
             </div>
         </a>
     </div>
     <div class="col-md-6">
-        <a href="{% url 'ai_practice_plan' %}" class="card quiz-card text-decoration-none text-dark h-100">
-            <div class="card-body p-4">
-                <h5 class="fw-bold"><i class="bi bi-robot me-2 text-primary"></i>AI Practice Plan</h5>
-                <p class="text-muted mb-0 small">Personalized tips based on your mistakes</p>
+        <a href="{% url 'ai_practice_plan' %}" class="card quiz-card text-decoration-none h-100">
+            <div class="card-body p-4 d-flex align-items-start gap-3">
+                <div class="feature-icon blue flex-shrink-0"><i class="bi bi-robot"></i></div>
+                <div>
+                    <h6 class="fw-bold text-dark mb-1">AI Practice Plan</h6>
+                    <p class="text-muted mb-0 small">Personalized tips based on your mistakes</p>
+                </div>
             </div>
         </a>
     </div>
 </div>
 {% endif %}
+
 {% endblock %}

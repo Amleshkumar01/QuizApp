@@ -1,37 +1,59 @@
 {% extends 'base.html' %}
 {% block title %}AI Practice Plan | PlacementIQ{% endblock %}
+
 {% block content %}
-<div class="content-wrapper">
-    <h3 class="fw-bold mb-1"><i class="bi bi-robot me-2"></i>AI Practice Plan</h3>
-    <p class="text-muted mb-4">Personalized tips based on your weak topics{% if company_name %} for {{ company_name }}{% endif %}</p>
+<div class="mb-4 fade-in-up">
+    <h2 class="fw-bold mb-1"><i class="bi bi-robot me-2 text-primary"></i>AI Practice Plan</h2>
+    <p class="mb-0" style="color:var(--muted);">Personalized tips based on your performance{% if company_name %} for <strong>{{ company_name }}</strong>{% endif %}.</p>
+</div>
 
-    {% if weak_topics %}
-    <p class="mb-3">Focus areas: <strong>{{ weak_topics|join:", " }}</strong></p>
-    {% endif %}
+{% if weak_topics %}
+<div class="content-wrapper mb-4 fade-in-up fade-in-up-delay-1" style="background:var(--warning-soft);border-color:var(--warning);">
+    <div class="d-flex align-items-center gap-2" style="font-size:0.9rem;color:var(--ink);">
+        <i class="bi bi-bullseye" style="font-size:1.1rem;color:var(--warning);"></i>
+        <span>Focus areas: <strong>{{ weak_topics|join:", " }}</strong></span>
+    </div>
+</div>
+{% endif %}
 
-    <ol class="list-group list-group-numbered mb-4">
-        {% for tip in tips %}
-        <li class="list-group-item">{{ tip }}</li>
-        {% endfor %}
-    </ol>
+<!-- Tips -->
+<div class="vstack gap-2 mb-4 fade-in-up fade-in-up-delay-1">
+    {% for tip in tips %}
+    <div class="content-wrapper d-flex gap-3 align-items-start" style="padding:1rem;">
+        <span class="d-inline-flex align-items-center justify-content-center flex-shrink-0"
+              style="width:28px;height:28px;border-radius:50%;background:var(--primary-soft);color:var(--primary-dark);font-weight:700;font-size:0.8rem;">{{ forloop.counter }}</span>
+        <span style="font-size:0.9rem;line-height:1.5;">{{ tip }}</span>
+    </div>
+    {% endfor %}
+</div>
 
-    <h5 class="fw-bold mb-3">Recommended Tests</h5>
+<!-- Recommended Tests -->
+<div class="fade-in-up fade-in-up-delay-2">
+    <h5 class="fw-bold mb-3"><i class="bi bi-lightbulb me-2" style="color:var(--warning);"></i>Recommended Tests</h5>
     <div class="row g-3">
         {% for test in suggested_tests %}
         <div class="col-md-6 col-lg-4">
             <div class="card quiz-card h-100">
-                <div class="card-body">
-                    <h6 class="fw-bold">{{ test.title }}</h6>
-                    <p class="text-muted small">{{ test.company.name }} · {{ test.get_section_display }}</p>
-                    <a href="{% url 'start_quiz' test.id %}" class="btn btn-primary btn-sm">Start</a>
+                <div class="card-body p-3">
+                    <h6 class="fw-bold mb-1" style="font-size:0.9rem;">{{ test.title }}</h6>
+                    <p class="small mb-2" style="color:var(--muted);">{{ test.company.name }} &middot; {{ test.get_section_display }}</p>
+                    <a href="{% url 'start_quiz' test.id %}" class="btn btn-primary btn-sm">
+                        <i class="bi bi-play-fill me-1"></i>Start
+                    </a>
                 </div>
             </div>
         </div>
+        {% empty %}
+        <div class="col-12">
+            <p style="color:var(--muted);">Complete more tests to get recommendations.</p>
+        </div>
         {% endfor %}
     </div>
+</div>
 
-    <div class="mt-4">
-        <a href="{% url 'student_analytics' %}" class="btn btn-outline-secondary">Back to Analytics</a>
-    </div>
+<div class="mt-4 fade-in-up fade-in-up-delay-3">
+    <a href="{% url 'student_analytics' %}" class="btn btn-outline-secondary btn-sm">
+        <i class="bi bi-arrow-left me-1"></i>Back to Analytics
+    </a>
 </div>
 {% endblock %}

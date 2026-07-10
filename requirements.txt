@@ -4,6 +4,8 @@ Django==5.2
 gunicorn==26.0.0
 packaging==26.2
 pillow==11.3.0
+python-dotenv==1.2.2
 sqlparse==0.5.3
+supabase==2.31.0
 tzdata==2025.2
 whitenoise==6.12.0

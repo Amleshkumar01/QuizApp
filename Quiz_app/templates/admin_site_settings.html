@@ -1,0 +1,61 @@
+{% extends 'base.html' %}
+{% block title %}Site Settings | PlacementIQ{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-2 fade-in-up">
+    <div>
+        <h2 class="fw-bold mb-1"><i class="bi bi-gear me-2"></i>Site Settings</h2>
+        <p class="mb-0" style="color:var(--muted);">Current configuration (controlled via environment variables).</p>
+    </div>
+    <a href="{% url 'admin_dashboard' %}" class="btn btn-outline-secondary btn-sm">Dashboard</a>
+</div>
+
+<div class="content-wrapper fade-in-up fade-in-up-delay-1">
+    <div class="table-responsive">
+        <table class="table align-middle mb-0">
+            <thead><tr><th>Setting</th><th>Current Value</th><th>Env Variable</th></tr></thead>
+            <tbody>
+                <tr>
+                    <td class="fw-semibold">Quiz Timer (seconds/question)</td>
+                    <td><code>{{ current.quiz_question_seconds }}</code></td>
+                    <td><code>QUIZ_QUESTION_SECONDS</code></td>
+                </tr>
+                <tr>
+                    <td class="fw-semibold">Max Sign-ups per IP</td>
+                    <td><code>{{ current.register_max_per_ip }}</code></td>
+                    <td><code>REGISTER_MAX_PER_IP</code></td>
+                </tr>
+                <tr>
+                    <td class="fw-semibold">Throttle Window (seconds)</td>
+                    <td><code>{{ current.register_throttle_seconds }}</code></td>
+                    <td><code>REGISTER_THROTTLE_SECONDS</code></td>
+                </tr>
+                <tr>
+                    <td class="fw-semibold">Session Lifetime (seconds)</td>
+                    <td><code>{{ current.session_cookie_age }}</code></td>
+                    <td><code>DJANGO_SESSION_COOKIE_AGE</code></td>
+                </tr>
+                <tr>
+                    <td class="fw-semibold">Debug Mode</td>
+                    <td>{% if current.debug %}<span class="badge" style="background:var(--warning-soft);color:var(--warning);">ON (dev)</span>{% else %}<span class="badge" style="background:var(--success-soft);color:var(--success);">OFF (prod)</span>{% endif %}</td>
+                    <td><code>DJANGO_DEBUG</code></td>
+                </tr>
+                <tr>
+                    <td class="fw-semibold">Allowed Hosts</td>
+                    <td><code>{{ current.allowed_hosts|join:", " }}</code></td>
+                    <td><code>DJANGO_ALLOWED_HOSTS</code></td>
+                </tr>
+                <tr>
+                    <td class="fw-semibold">OpenAI (AI Questions)</td>
+                    <td>{% if current.openai_configured %}<span class="badge" style="background:var(--success-soft);color:var(--success);">Configured</span>{% else %}<span class="badge" style="background:var(--soft-line);color:var(--muted);">Not set</span>{% endif %}</td>
+                    <td><code>OPENAI_API_KEY</code></td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+    <div class="mt-4 p-3 rounded" style="background:var(--soft-line);font-size:0.88rem;">
+        <i class="bi bi-info-circle me-2 text-primary"></i>
+        To change settings, update the <code>.env</code> file (or environment variables) and restart the server.
+        These settings cannot be modified from the web interface for security reasons.
+    </div>
+</div>
+{% endblock %}

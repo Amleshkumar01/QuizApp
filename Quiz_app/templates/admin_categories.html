@@ -1,0 +1,36 @@
+{% extends 'base.html' %}
+{% block title %}Manage Categories | PlacementIQ{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-2 fade-in-up">
+    <h2 class="fw-bold mb-0"><i class="bi bi-folder me-2"></i>Manage Categories</h2>
+    <div class="d-flex gap-2">
+        <a href="{% url 'admin_add_category' %}" class="btn btn-primary btn-sm">Add Category</a>
+        <a href="{% url 'admin_dashboard' %}" class="btn btn-outline-secondary btn-sm">Dashboard</a>
+    </div>
+</div>
+
+<div class="content-wrapper fade-in-up fade-in-up-delay-1">
+    <div class="table-responsive">
+        <table class="table align-middle mb-0">
+            <thead><tr><th>Category</th><th>Quizzes</th><th class="text-end">Actions</th></tr></thead>
+            <tbody>
+                {% for cat in categories %}
+                <tr>
+                    <td class="fw-semibold">{{ cat.name }}</td>
+                    <td>{{ cat.quiz_count }}</td>
+                    <td class="text-end">
+                        <a href="{% url 'admin_edit_category' cat.id %}" class="btn btn-sm btn-outline-primary">Edit</a>
+                        <form method="post" action="{% url 'admin_delete_category' cat.id %}" class="d-inline" onsubmit="return confirm('Delete category?');">
+                            {% csrf_token %}
+                            <button class="btn btn-sm btn-danger" type="submit">Delete</button>
+                        </form>
+                    </td>
+                </tr>
+                {% empty %}
+                <tr><td colspan="3" style="color:var(--muted);">No categories.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

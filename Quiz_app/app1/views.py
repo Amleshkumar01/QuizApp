@@ -2,6 +2,7 @@ from datetime import date, datetime, timedelta
 from decimal import Decimal, InvalidOperation
 from io import TextIOWrapper
 import csv
+import os
 import random
 import re
 import time
@@ -12,12 +13,13 @@ from django.contrib.auth import authenticate, login, logout
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.models import User
 from django.contrib.auth.password_validation import validate_password
-from django.http import HttpResponseForbidden
+from django.core.validators import validate_email
+from django.http import HttpResponseForbidden, HttpResponse
 
 from .decorators import admin_required, student_required
 from django.core.cache import cache
 from django.core.exceptions import ValidationError
-from django.db import transaction
+from django.db import IntegrityError, transaction
 from django.db.models import Count, Q
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
@@ -25,13 +27,16 @@ from django.views.decorators.http import require_http_methods, require_POST
 
 from .ai_service import explain_answer, generate_questions, number_question_items, personalized_suggestions
 from .analytics import admin_placement_stats, student_section_performance, student_weak_topics, suggested_tests_for_user
-from .college_auth import is_valid_student_name, verify_college_login
 from .models import Answer, Attempt, Category, Company, Option, Question, Quiz
 
 _LOGIN_THROTTLE_SECONDS = 900
 _LOGIN_MAX_PER_USERNAME = 5
 _LOGIN_MAX_PER_IP = 25
 _QUIZ_SUBMIT_LOCK_SECONDS = 120
+
+# Registration abuse protection (mass sign-up / spam accounts).
+_REGISTER_THROTTLE_SECONDS = int(os.environ.get("REGISTER_THROTTLE_SECONDS", "3600"))
+_REGISTER_MAX_PER_IP = int(os.environ.get("REGISTER_MAX_PER_IP", "10"))
 
 
 def _valid_quiz_status(value):
@@ -272,6 +277,37 @@ def _client_ip(request):
     return (request.META.get("REMOTE_ADDR") or "unknown").strip() or "unknown"
 
 
+_LOGO_MAX_BYTES = 2 * 1024 * 1024  # 2 MB
+# Raster formats only. SVG is intentionally excluded — it is XML that can carry
+# embedded scripts (stored-XSS risk if opened directly from /media/).
+_LOGO_ALLOWED_EXTS = (".png", ".jpg", ".jpeg", ".gif", ".webp")
+
+
+def _validate_logo_upload(upload):
+    """Return an error string if the uploaded logo is unsafe, else None."""
+    if upload is None:
+        return None
+    name = (getattr(upload, "name", "") or "").lower()
+    if not name.endswith(_LOGO_ALLOWED_EXTS):
+        return "Logo must be a PNG, JPG, GIF, or WEBP image."
+    if getattr(upload, "size", 0) > _LOGO_MAX_BYTES:
+        return "Logo is too large (max 2MB)."
+    # Verify the bytes are actually a valid image, not a renamed payload.
+    try:
+        from PIL import Image
+
+        upload.seek(0)
+        Image.open(upload).verify()
+    except Exception:
+        return "Logo file is not a valid image."
+    finally:
+        try:
+            upload.seek(0)
+        except Exception:
+            pass
+    return None
+
+
 def _login_throttle_keys(request, username):
     uname = (username or "").lower()[:150]
     return f"login_throttle:u:{uname}", f"login_throttle:ip:{_client_ip(request)}"
@@ -291,6 +327,24 @@ def _bump_login_throttle(request, username):
 def _clear_login_throttle(request, username):
     for key in _login_throttle_keys(request, username):
         cache.delete(key)
+
+
+def _register_throttle_key(request):
+    return f"register_throttle:ip:{_client_ip(request)}"
+
+
+def _is_register_throttled(request):
+    return cache.get(_register_throttle_key(request), 0) >= _REGISTER_MAX_PER_IP
+
+
+def _bump_register_throttle(request):
+    key = _register_throttle_key(request)
+    try:
+        # Atomic increment; seed the key with its TTL on first use.
+        cache.add(key, 0, _REGISTER_THROTTLE_SECONDS)
+        cache.incr(key)
+    except ValueError:
+        cache.set(key, 1, _REGISTER_THROTTLE_SECONDS)
 
 
 def _quiz_submit_lock_key(user_id, quiz_id):
@@ -314,57 +368,11 @@ def _session_quiz_state_ok(quiz, question_ids):
     return set(question_ids) == valid
 
 
-def _sanitize_student_username(enrollment_id):
-    """Map college enrollment/login ID to a valid Django username."""
-    cleaned = re.sub(r"[^\w.@+-]", "_", (enrollment_id or "").strip())[:150]
-    return cleaned or "student"
-
-
-def _get_or_create_college_student_user(enrollment_id, display_name="", email=""):
-    """Create a Django user for quiz attempts — password is never stored."""
-    username = _sanitize_student_username(enrollment_id)
-    user, created = User.objects.get_or_create(
-        username=username,
-        defaults={
-            "email": email or "",
-            "first_name": display_name or "",
-            "is_staff": False,
-        },
-    )
-    changed = False
-    if display_name and is_valid_student_name(display_name, enrollment_id):
-        if user.first_name != display_name:
-            user.first_name = display_name
-            changed = True
-    elif user.first_name and not is_valid_student_name(user.first_name, enrollment_id):
-        user.first_name = ""
-        changed = True
-    if email and user.email != email:
-        user.email = email
-        changed = True
-    if user.has_usable_password():
-        user.set_unusable_password()
-        changed = True
-    if created or changed:
-        user.save()
-    return user
-
-
-def _store_student_profile_session(request, enrollment_id, display_name="", email=""):
-    request.session["student_enrollment_id"] = enrollment_id
-    if display_name:
-        request.session["student_display_name"] = display_name
-    else:
-        request.session.pop("student_display_name", None)
-    if email:
-        request.session["student_email"] = email
-    else:
-        request.session.pop("student_email", None)
-
-
-def _clear_student_profile_session(request):
-    for key in ("student_enrollment_id", "student_display_name", "student_email"):
-        request.session.pop(key, None)
+def _post_login_redirect(user):
+    """Redirect authenticated user to correct dashboard."""
+    if user.is_staff:
+        return redirect("admin_dashboard")
+    return redirect("student_dashboard")
 
 
 def _question_timed_out(request):
@@ -523,12 +531,6 @@ def _finish_or_advance_quiz(request, quiz, question_index, question_ids, is_last
     return redirect("attempt_quiz", quiz_id=quiz.pk)
 
 
-def _post_login_redirect(user):
-    if user.is_staff:
-        return redirect("admin_dashboard")
-    return redirect("student_dashboard")
-
-
 def django_admin_blocked(request):
     """Block public access to the default Django /admin/ URL."""
     return HttpResponseForbidden(
@@ -580,52 +582,42 @@ def student_login_view(request):
         return _post_login_redirect(request.user)
 
     if request.method == "POST":
-        enrollment_id = (request.POST.get("enrollment_id") or request.POST.get("username") or "").strip()
+        username = (request.POST.get("username") or "").strip()
         password = request.POST.get("password") or ""
 
-        if _is_login_throttled(request, enrollment_id):
+        if _is_login_throttled(request, username):
             messages.error(
                 request,
                 "Too many login attempts. Please wait a few minutes and try again.",
             )
-            return redirect("student_login")
+            return render(request, "login.html", {"form_username": username})
 
-        auth_result = verify_college_login(enrollment_id, password)
-        if auth_result.success:
-            user = _get_or_create_college_student_user(
-                auth_result.enrollment_id,
-                display_name=auth_result.display_name,
-                email=auth_result.email,
+        # Allow login with email or username
+        user = authenticate(request, username=username, password=password)
+        if user is None and "@" in username:
+            # Try email lookup. Use filter().first() so duplicate emails (should
+            # not exist, but be defensive) never raise MultipleObjectsReturned.
+            email_user = (
+                User.objects.filter(email__iexact=username).order_by("pk").first()
             )
+            if email_user is not None:
+                user = authenticate(request, username=email_user.username, password=password)
+
+        if user is not None:
             if user.is_staff:
                 messages.error(request, "Admin accounts must use the admin login page.")
                 return redirect("admin_login")
 
-            _clear_login_throttle(request, enrollment_id)
+            _clear_login_throttle(request, username)
             request.session.cycle_key()
-            profile_name = ""
-            if auth_result.display_name and is_valid_student_name(
-                auth_result.display_name, auth_result.enrollment_id
-            ):
-                profile_name = auth_result.display_name
-            elif is_valid_student_name(user.first_name, auth_result.enrollment_id):
-                profile_name = user.first_name
-
-            profile_email = auth_result.email or user.email
-            _store_student_profile_session(
-                request,
-                auth_result.enrollment_id,
-                display_name=profile_name,
-                email=profile_email,
-            )
             login(request, user)
-            welcome = profile_name or auth_result.enrollment_id
-            messages.success(request, f"Welcome, {welcome}!")
+            display_name = user.first_name or user.username
+            messages.success(request, f"Welcome back, {display_name}!")
             return redirect("student_dashboard")
 
-        _bump_login_throttle(request, enrollment_id)
-        messages.error(request, auth_result.error_message or "Invalid Student Login ID or Password")
-        return redirect("student_login")
+        _bump_login_throttle(request, username)
+        messages.error(request, "Invalid username/email or password.")
+        return render(request, "login.html", {"form_username": username})
 
     return render(request, "login.html")
 
@@ -639,7 +631,6 @@ def login_view(request):
 @require_POST
 def logout_view(request):
     was_staff = request.user.is_staff
-    _clear_student_profile_session(request)
     logout(request)
     messages.info(request, "You have been logged out.")
     if was_staff:
@@ -659,13 +650,27 @@ def student_dashboard(request):
         .select_related("quiz", "quiz__company")
         .order_by("-completed_at")[:5]
     )
-    total_attempts = Attempt.objects.filter(user=request.user).count()
+    user_attempts = Attempt.objects.filter(user=request.user)
+    total_attempts = user_attempts.count()
     best_score = (
-        Attempt.objects.filter(user=request.user)
+        user_attempts
         .order_by("-marks_obtained", "-score")
         .values_list("marks_obtained", flat=True)
         .first()
     )
+    # Average accuracy percentage
+    avg_accuracy = 0
+    if total_attempts > 0:
+        from django.db.models import Sum
+        totals = user_attempts.aggregate(
+            total_correct=Sum("correct_count"),
+            total_questions=Sum("total"),
+        )
+        if totals["total_questions"] and totals["total_questions"] > 0:
+            avg_accuracy = round(
+                (totals["total_correct"] or 0) / totals["total_questions"] * 100
+            )
+
     upcoming_drives = (
         Quiz.objects.filter(status="active", drive_date__gte=date.today(), company__isnull=False)
         .select_related("company")
@@ -679,6 +684,7 @@ def student_dashboard(request):
             "recent_attempts": recent_attempts,
             "total_attempts": total_attempts,
             "best_score": best_score,
+            "avg_accuracy": avg_accuracy,
             "upcoming_drives": upcoming_drives,
         },
     )
@@ -740,16 +746,106 @@ def company_tests(request, company_id):
 
 @require_http_methods(["GET", "POST"])
 def register(request):
-    """Student self-registration is disabled — use college ERP credentials."""
-    messages.info(request, "Student registration is disabled. Use your college ERP login credentials.")
-    return redirect("student_login")
+    """Redirect legacy /register/ to the new signup page."""
+    return redirect("student_register")
 
 
 @require_http_methods(["GET", "POST"])
 def student_register(request):
-    """Student self-registration is disabled — use college ERP credentials."""
-    messages.info(request, "Student registration is disabled. Use your college ERP login credentials.")
-    return redirect("student_login")
+    """Student self-registration with Django auth."""
+    if request.user.is_authenticated:
+        return _post_login_redirect(request.user)
+
+    form_data = {}
+    if request.method == "POST":
+        # Rate-limit sign-ups per IP to curb bot / mass-account abuse.
+        # Tune with REGISTER_MAX_PER_IP (raise it for shared campus NAT networks).
+        if _is_register_throttled(request):
+            messages.error(
+                request,
+                "Too many sign-up attempts from this network. Please try again later.",
+            )
+            return render(request, "register.html")
+
+        username = (request.POST.get("username") or "").strip()
+        email = (request.POST.get("email") or "").strip()
+        first_name = (request.POST.get("first_name") or "").strip()[:150]
+        last_name = (request.POST.get("last_name") or "").strip()[:150]
+        password = request.POST.get("password") or ""
+        confirm_password = request.POST.get("confirm_password") or ""
+
+        form_data = {
+            "form_username": username,
+            "form_email": email,
+            "form_first_name": first_name,
+            "form_last_name": last_name,
+        }
+
+        _bump_register_throttle(request)
+
+        # Validation
+        errors = []
+        if not username:
+            errors.append("Username is required.")
+        elif len(username) < 3 or len(username) > 150:
+            errors.append("Username must be between 3 and 150 characters.")
+        elif not re.match(r'^[\w.@+-]+$', username):
+            errors.append("Username can only contain letters, digits, and @/./+/-/_ characters.")
+
+        if not email:
+            errors.append("Email is required.")
+        elif len(email) > 254:
+            errors.append("Email address is too long.")
+        else:
+            try:
+                validate_email(email)
+            except ValidationError:
+                errors.append("Enter a valid email address.")
+
+        if not password:
+            errors.append("Password is required.")
+        elif password != confirm_password:
+            errors.append("Passwords do not match.")
+
+        if not errors:
+            try:
+                validate_password(password, user=User(username=username, email=email))
+            except ValidationError as e:
+                errors.extend(e.messages)
+
+        if not errors and User.objects.filter(username__iexact=username).exists():
+            errors.append("This username is already taken.")
+
+        if not errors and User.objects.filter(email__iexact=email).exists():
+            errors.append("An account with this email already exists.")
+
+        if errors:
+            for err in errors:
+                messages.error(request, err)
+            return render(request, "register.html", form_data)
+
+        # Create user (guard against a race between the checks above and insert).
+        try:
+            with transaction.atomic():
+                if User.objects.filter(Q(username__iexact=username) | Q(email__iexact=email)).exists():
+                    raise IntegrityError("duplicate user")
+                user = User.objects.create_user(
+                    username=username,
+                    email=email,
+                    password=password,
+                    first_name=first_name,
+                    last_name=last_name,
+                    is_staff=False,
+                )
+        except IntegrityError:
+            messages.error(request, "That username or email is already registered.")
+            return render(request, "register.html", form_data)
+
+        login(request, user)
+        messages.success(request, f"Welcome to PlacementIQ, {first_name or username}! Your account is ready.")
+        return redirect("student_dashboard")
+
+    return render(request, "register.html", form_data)
 
 
 def category_quizzes(request, category_id):
@@ -1292,18 +1388,23 @@ def upload_quizzes_csv(request):
             messages.error(request, "CSV file is too large (max 2MB).")
             return redirect("admin_manage_quizzes")
 
-        file_data = TextIOWrapper(csv_file.file, encoding="utf-8")
-        reader = csv.DictReader(file_data)
+        try:
+            file_data = TextIOWrapper(csv_file.file, encoding="utf-8")
+            reader = csv.DictReader(file_data)
+            rows = list(enumerate(reader))
+        except (UnicodeDecodeError, csv.Error):
+            messages.error(request, "Could not read the CSV. Ensure it is a valid UTF-8 .csv file.")
+            return redirect("admin_manage_quizzes")
 
         max_rows = 1000
         created = 0
         with transaction.atomic():
-            for idx, row in enumerate(reader):
+            for idx, row in rows:
                 if idx >= max_rows:
                     break
 
-                title = (row.get("title") or "").strip()
-                category_name = (row.get("category") or "").strip()
+                title = (row.get("title") or "").strip()[:255]
+                category_name = (row.get("category") or "").strip()[:100]
                 status = _valid_quiz_status((row.get("status") or "active").strip())
                 if not title or not category_name:
                     continue
@@ -1329,8 +1430,19 @@ def admin_add_user(request):
             messages.error(request, "Username and email are required.")
             return redirect("admin_add_user")
 
-        if User.objects.filter(username=username).exists():
+        try:
+            validate_email(email)
+        except ValidationError:
+            messages.error(request, "Enter a valid email address.")
+            return redirect("admin_add_user")
+
+        if User.objects.filter(username__iexact=username).exists():
             messages.error(request, "Username already exists.")
+            return redirect("admin_add_user")
+
+        # Enforce email uniqueness so email-based login stays unambiguous.
+        if User.objects.filter(email__iexact=email).exists():
+            messages.error(request, "A user with this email already exists.")
             return redirect("admin_add_user")
 
         try:
@@ -1340,7 +1452,15 @@ def admin_add_user(request):
                 messages.error(request, err)
             return redirect("admin_add_user")
 
-        User.objects.create_user(username=username, email=email, password=password, is_staff=False)
+        try:
+            with transaction.atomic():
+                if User.objects.filter(Q(username__iexact=username) | Q(email__iexact=email)).exists():
+                    raise IntegrityError("duplicate user")
+                User.objects.create_user(username=username, email=email, password=password, is_staff=False)
+        except IntegrityError:
+            messages.error(request, "That username or email is already registered.")
+            return redirect("admin_add_user")
+
         messages.success(request, "User created successfully.")
         return redirect("admin_manage_users")
 
@@ -1379,13 +1499,19 @@ def upload_users_csv(request):
             messages.error(request, "CSV file is too large (max 2MB).")
             return redirect("admin_manage_users")
 
-        file_data = TextIOWrapper(csv_file.file, encoding="utf-8")
-        reader = csv.DictReader(file_data)
+        try:
+            file_data = TextIOWrapper(csv_file.file, encoding="utf-8")
+            reader = csv.DictReader(file_data)
+            rows = list(enumerate(reader))
+        except (UnicodeDecodeError, csv.Error):
+            messages.error(request, "Could not read the CSV. Ensure it is a valid UTF-8 .csv file.")
+            return redirect("admin_manage_users")
 
         max_rows = 1000
         created = 0
+        skipped = 0
         with transaction.atomic():
-            for idx, row in enumerate(reader):
+            for idx, row in rows:
                 if idx >= max_rows:
                     break
 
@@ -1393,20 +1519,33 @@ def upload_users_csv(request):
                 email = (row.get("email") or "").strip()
                 password = row.get("password") or ""
                 if not username or not email or not password:
+                    skipped += 1
                     continue
 
-                if User.objects.filter(username=username).exists():
+                # Validate email format and enforce username + email uniqueness.
+                try:
+                    validate_email(email)
+                except ValidationError:
+                    skipped += 1
+                    continue
+
+                if User.objects.filter(Q(username__iexact=username) | Q(email__iexact=email)).exists():
+                    skipped += 1
                     continue
 
                 try:
                     validate_password(password, user=User(username=username, email=email))
                 except ValidationError:
+                    skipped += 1
                     continue
 
                 User.objects.create_user(username=username, email=email, password=password, is_staff=False)
                 created += 1
 
-        messages.success(request, f"Users uploaded successfully ({created} added).")
+        msg = f"Users uploaded successfully ({created} added)."
+        if skipped:
+            msg += f" {skipped} row(s) skipped (invalid, duplicate, or weak password)."
+        messages.success(request, msg)
         return redirect("admin_manage_users")
 
     return render(request, "admin_upload_users.html")
@@ -1475,13 +1614,19 @@ def admin_add_company(request):
             messages.error(request, "A company with this name already exists.")
             return redirect("admin_add_company")
 
+        logo = request.FILES.get("logo")
+        logo_error = _validate_logo_upload(logo)
+        if logo_error:
+            messages.error(request, logo_error)
+            return redirect("admin_add_company")
+
         company = Company.objects.create(
             name=name,
             description=description,
             is_active=is_active,
         )
-        if request.FILES.get("logo"):
-            company.logo = request.FILES["logo"]
+        if logo:
+            company.logo = logo
             company.save(update_fields=["logo"])
 
         messages.success(request, "Company created successfully.")
@@ -1507,11 +1652,17 @@ def admin_edit_company(request, company_id):
             messages.error(request, "A company with this name already exists.")
             return redirect("admin_edit_company", company_id=company.id)
 
+        logo = request.FILES.get("logo")
+        logo_error = _validate_logo_upload(logo)
+        if logo_error:
+            messages.error(request, logo_error)
+            return redirect("admin_edit_company", company_id=company.id)
+
         company.name = name
         company.description = description
         company.is_active = is_active
-        if request.FILES.get("logo"):
-            company.logo = request.FILES["logo"]
+        if logo:
+            company.logo = logo
         company.save()
 
         messages.success(request, "Company updated successfully.")
@@ -1577,3 +1728,212 @@ def admin_manage_results(request):
             "difficulty_choices": Quiz.DIFFICULTY_CHOICES,
         },
     )
+
+
+# ═══════════════════════════════════════════════════════════════
+# FULL ADMIN CONTROL — additional views
+# ═══════════════════════════════════════════════════════════════
+
+
+@admin_required
+@require_POST
+def admin_delete_attempt(request, attempt_id):
+    """Delete a student's test attempt (result)."""
+    attempt = get_object_or_404(Attempt, pk=attempt_id)
+    attempt.delete()
+    messages.success(request, "Attempt deleted.")
+    return redirect("admin_manage_results")
+
+
+@admin_required
+def admin_student_detail(request, user_id):
+    """View a specific student's profile + full history."""
+    student = get_object_or_404(User, pk=user_id, is_staff=False)
+    attempts = (
+        Attempt.objects.filter(user=student)
+        .select_related("quiz", "quiz__company")
+        .order_by("-completed_at")
+    )
+    from django.db.models import Sum, Avg
+    stats = attempts.aggregate(
+        attempt_count=Count("id"),
+        avg_score=Avg("marks_obtained"),
+        total_correct=Sum("correct_count"),
+        total_questions=Sum("total"),
+    )
+    accuracy = 0
+    if stats["total_questions"] and stats["total_questions"] > 0:
+        accuracy = round((stats["total_correct"] or 0) / stats["total_questions"] * 100)
+    return render(request, "admin_student_detail.html", {
+        "student": student,
+        "attempts": attempts,
+        "stats": stats,
+        "accuracy": accuracy,
+    })
+
+
+@admin_required
+def admin_reset_password(request, user_id):
+    """Reset a student's password from admin panel."""
+    student = get_object_or_404(User, pk=user_id, is_staff=False)
+    if request.method == "POST":
+        new_password = request.POST.get("password") or ""
+        if not new_password:
+            messages.error(request, "Password is required.")
+            return redirect("admin_reset_password", user_id=student.id)
+        try:
+            validate_password(new_password, user=student)
+        except ValidationError as e:
+            for err in e.messages:
+                messages.error(request, err)
+            return redirect("admin_reset_password", user_id=student.id)
+        student.set_password(new_password)
+        student.save()
+        messages.success(request, f"Password reset for {student.username}.")
+        return redirect("admin_student_detail", user_id=student.id)
+    return render(request, "admin_reset_password.html", {"student": student})
+
+
+@admin_required
+def admin_manage_categories(request):
+    """List all quiz categories."""
+    categories = Category.objects.annotate(quiz_count=Count("quizzes")).order_by("name")
+    return render(request, "admin_categories.html", {"categories": categories})
+
+
+@admin_required
+def admin_add_category(request):
+    if request.method == "POST":
+        name = (request.POST.get("name") or "").strip()[:100]
+        if not name:
+            messages.error(request, "Category name is required.")
+            return redirect("admin_add_category")
+        if Category.objects.filter(name__iexact=name).exists():
+            messages.error(request, "A category with this name already exists.")
+            return redirect("admin_add_category")
+        Category.objects.create(name=name)
+        messages.success(request, "Category created.")
+        return redirect("admin_manage_categories")
+    return render(request, "admin_add_category.html")
+
+
+@admin_required
+def admin_edit_category(request, category_id):
+    category = get_object_or_404(Category, pk=category_id)
+    if request.method == "POST":
+        name = (request.POST.get("name") or "").strip()[:100]
+        if not name:
+            messages.error(request, "Category name is required.")
+            return redirect("admin_edit_category", category_id=category.id)
+        if Category.objects.filter(name__iexact=name).exclude(pk=category.pk).exists():
+            messages.error(request, "A category with this name already exists.")
+            return redirect("admin_edit_category", category_id=category.id)
+        category.name = name
+        image = request.FILES.get("image")
+        if image:
+            category.image = image
+        category.save()
+        messages.success(request, "Category updated.")
+        return redirect("admin_manage_categories")
+    return render(request, "admin_add_category.html", {"category": category})
+
+
+@admin_required
+@require_POST
+def admin_delete_category(request, category_id):
+    category = get_object_or_404(Category, pk=category_id)
+    if category.quizzes.exists():
+        messages.error(request, "Cannot delete a category that still has quizzes. Reassign them first.")
+        return redirect("admin_manage_categories")
+    category.delete()
+    messages.success(request, "Category deleted.")
+    return redirect("admin_manage_categories")
+
+
+@admin_required
+@require_POST
+def admin_bulk_delete_users(request):
+    """Bulk delete selected students."""
+    user_ids = request.POST.getlist("user_ids")
+    if not user_ids:
+        messages.error(request, "No users selected.")
+        return redirect("admin_manage_users")
+    # Never delete staff/superuser via bulk action.
+    deleted, _ = User.objects.filter(pk__in=user_ids, is_staff=False).exclude(pk=request.user.pk).delete()
+    messages.success(request, f"Deleted {deleted} user(s).")
+    return redirect("admin_manage_users")
+
+
+@admin_required
+@require_POST
+def admin_bulk_quiz_status(request):
+    """Bulk change quiz status (active/hold/disabled)."""
+    quiz_ids = request.POST.getlist("quiz_ids")
+    new_status = (request.POST.get("new_status") or "").strip()
+    if not quiz_ids:
+        messages.error(request, "No quizzes selected.")
+        return redirect("admin_manage_quizzes")
+    if new_status not in dict(Quiz.STATUS_CHOICES):
+        messages.error(request, "Invalid status.")
+        return redirect("admin_manage_quizzes")
+    updated = Quiz.objects.filter(pk__in=quiz_ids).update(status=new_status)
+    messages.success(request, f"Updated {updated} quiz(zes) to '{new_status}'.")
+    return redirect("admin_manage_quizzes")
+
+
+@admin_required
+def admin_export_results(request):
+    """Export filtered results as CSV download."""
+    attempts = Attempt.objects.select_related("user", "quiz", "quiz__company").order_by("-completed_at")
+
+    company_id = (request.GET.get("company") or "").strip()
+    if company_id.isdigit():
+        attempts = attempts.filter(quiz__company_id=int(company_id))
+
+    difficulty = (request.GET.get("level") or "").strip()
+    if difficulty in dict(Quiz.DIFFICULTY_CHOICES):
+        attempts = attempts.filter(quiz__difficulty=difficulty)
+
+    student_query = (request.GET.get("student") or "").strip()
+    if student_query:
+        attempts = attempts.filter(
+            Q(user__username__icontains=student_query) | Q(user__email__icontains=student_query)
+        )
+
+    response = HttpResponse(content_type="text/csv")
+    response["Content-Disposition"] = 'attachment; filename="results_export.csv"'
+    writer = csv.writer(response)
+    writer.writerow(["Student Name", "Username", "Email", "Test", "Company", "Level", "Score", "Total", "Marks", "Completed"])
+    for a in attempts[:5000]:
+        writer.writerow([
+            a.user.first_name or "—",
+            a.user.username,
+            a.user.email or "—",
+            a.quiz.title,
+            a.quiz.company.name if a.quiz.company else "—",
+            a.quiz.get_difficulty_display(),
+            a.score,
+            a.total,
+            str(a.marks_obtained),
+            a.completed_at.strftime("%Y-%m-%d %H:%M") if a.completed_at else "",
+        ])
+    return response
+
+
+@admin_required
+def admin_site_settings(request):
+    """View/info page for admin-controllable site settings (environment-based)."""
+    if request.method == "POST":
+        messages.info(request, "Settings are controlled via environment variables. Update your .env file and restart the server.")
+        return redirect("admin_site_settings")
+    current = {
+        "quiz_question_seconds": settings.QUIZ_QUESTION_SECONDS,
+        "register_max_per_ip": _REGISTER_MAX_PER_IP,
+        "register_throttle_seconds": _REGISTER_THROTTLE_SECONDS,
+        "session_cookie_age": getattr(settings, "SESSION_COOKIE_AGE", "N/A"),
+        "debug": settings.DEBUG,
+        "allowed_hosts": settings.ALLOWED_HOSTS,
+        "openai_configured": bool(getattr(settings, "OPENAI_API_KEY", "")),
+    }
+    return render(request, "admin_site_settings.html", {"current": current})
+

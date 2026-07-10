@@ -1,50 +1,54 @@
 {% extends 'base.html' %}
 {% load static %}
 {% block title %}{{ quiz.title }} | PlacementIQ{% endblock %}
+
 {% block content %}
-<div class="content-wrapper">
-    <div class="d-flex justify-content-between align-items-center mb-3">
-        <div>
-            <p class="text-muted mb-0 small">{{ quiz.title }}</p>
-            <h4 class="fw-bold mb-0">Question {{ question_number }} of {{ total_questions }}</h4>
-        </div>
-        <span class="badge bg-primary-subtle text-primary border border-primary-subtle px-3 py-2">
-            {% if uses_test_timer %}Full test timer{% else %}{{ question_seconds }}s per question{% endif %}
-        </span>
+<div class="mx-auto fade-in-up" style="max-width:720px;">
+    <!-- Top bar -->
+    <div class="d-flex justify-content-between align-items-center mb-2">
+        <span class="small" style="color:var(--muted);"><i class="bi bi-journal-check me-1"></i>{{ quiz.title }}</span>
+        <span class="badge" style="background:var(--primary-soft);color:var(--primary-dark);font-size:0.8rem;">{{ question_number }} / {{ total_questions }}</span>
     </div>
 
-    <div class="progress mb-3" style="height: 8px;">
+    <!-- Progress -->
+    <div class="progress mb-3" style="height:6px;border-radius:3px;">
         <div class="progress-bar" role="progressbar"
-             style="width: {% widthratio question_number total_questions 100 %}%"
+             style="width: {% widthratio question_number total_questions 100 %}%; background:linear-gradient(90deg,var(--primary),var(--accent));"
              aria-valuenow="{{ question_number }}" aria-valuemin="0" aria-valuemax="{{ total_questions }}"></div>
     </div>
 
+    <!-- Timer -->
     <div class="quiz-timer mb-4" id="timer-display" role="status" data-seconds="{{ seconds_remaining }}">
-        <i class="bi bi-stopwatch me-1"></i> Time left: <span id="timer-value">{{ seconds_remaining }}</span>s
+        <i class="bi bi-stopwatch me-1"></i>
+        {% if uses_test_timer %}Test time{% else %}Question time{% endif %}: <span id="timer-value">{{ seconds_remaining }}</span>s
     </div>
 
-    <p class="lead mb-4">{{ question.text }}</p>
+    <!-- Question -->
+    <div class="soft-panel p-4 mb-4">
+        <p class="mb-0" style="font-size:1.05rem;font-weight:500;line-height:1.6;color:var(--ink);">{{ question.text }}</p>
+    </div>
 
+    <!-- Options -->
     <form method="post" id="quiz-form" novalidate>
         {% csrf_token %}
         {% for option in options %}
-        <div class="quiz-option">
-            <div class="form-check m-0">
-                <input class="form-check-input" type="radio" name="option" id="option{{ option.id }}" value="{{ option.id }}">
-                <label class="form-check-label w-100" for="option{{ option.id }}">{{ option.text }}</label>
-            </div>
-        </div>
+        <label class="quiz-option d-flex align-items-center gap-3" for="option{{ option.id }}">
+            <input class="form-check-input m-0 flex-shrink-0" type="radio" name="option" id="option{{ option.id }}" value="{{ option.id }}" style="width:18px;height:18px;">
+            <span style="font-size:0.92rem;">{{ option.text }}</span>
+        </label>
         {% endfor %}
-        <button type="submit" class="btn btn-primary btn-lg mt-2" id="submit-btn">
+
+        <button type="submit" class="btn btn-primary btn-lg w-100 mt-3" id="submit-btn">
             {% if is_last_question %}
                 <i class="bi bi-check-circle me-1"></i>Finish Quiz
             {% else %}
-                <i class="bi bi-arrow-right-circle me-1"></i>Next Question
+                Next Question<i class="bi bi-arrow-right ms-2"></i>
             {% endif %}
         </button>
     </form>
 </div>
 {% endblock %}
+
 {% block extra_js %}
 <script src="{% static 'js/quiz.js' %}"></script>
 {% endblock %}

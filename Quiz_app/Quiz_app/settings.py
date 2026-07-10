@@ -14,6 +14,10 @@ from pathlib import Path
 import os
 from django.core.exceptions import ImproperlyConfigured
 
+# Load environment variables from .env file (dev convenience; in prod use real env vars).
+from dotenv import load_dotenv
+load_dotenv(Path(__file__).resolve().parent.parent / ".env")
+
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
@@ -51,20 +55,15 @@ ALLOWED_HOSTS = [
 
 
 
+# HTTPS origins trusted for CSRF (full scheme+host, comma-separated).
+# Behind a reverse proxy (e.g. Render), set DJANGO_CSRF_TRUSTED_ORIGINS to your
+# public https URL(s), e.g. https://quiz.example.com,https://www.quiz.example.com
 CSRF_TRUSTED_ORIGINS = [
     o.strip()
     for o in os.environ.get(
         "DJANGO_CSRF_TRUSTED_ORIGINS",
-        "https://quizapp-s39c.onrender.com"
+        "https://quizapp-s39c.onrender.com",
     ).split(",")
-    if o.strip()
-]
-
-# HTTPS origins for CSRF when behind a reverse proxy (comma-separated full URLs).
-# Example: https://quiz.example.com,https://www.quiz.example.com
-CSRF_TRUSTED_ORIGINS = [
-    o.strip()
-    for o in os.environ.get("DJANGO_CSRF_TRUSTED_ORIGINS", "").split(",")
     if o.strip()
 ]
 
@@ -82,12 +81,26 @@ CSRF_COOKIE_HTTPONLY = True
 SESSION_COOKIE_SAMESITE = "Lax"
 CSRF_COOKIE_SAMESITE = "Lax"
 
+# Limit session lifetime and re-expire on browser close for shared machines.
+SESSION_COOKIE_AGE = int(os.environ.get("DJANGO_SESSION_COOKIE_AGE", str(60 * 60 * 8)))  # 8 hours
+SESSION_EXPIRE_AT_BROWSER_CLOSE = True
+
+# Cap request body / uploaded file sizes to blunt memory-exhaustion abuse.
+DATA_UPLOAD_MAX_MEMORY_SIZE = 5 * 1024 * 1024   # 5 MB
+FILE_UPLOAD_MAX_MEMORY_SIZE = 5 * 1024 * 1024   # 5 MB
+DATA_UPLOAD_MAX_NUMBER_FIELDS = 1000
+
 # Safe defaults in all environments (extra headers are ignored over plain HTTP).
 SECURE_CONTENT_TYPE_NOSNIFF = True
 SECURE_REFERRER_POLICY = "same-origin"
 
 # Enable stronger transport security only when not debugging.
 if not DEBUG:
+    # Behind a TLS-terminating reverse proxy (Render, Heroku, Nginx, etc.) Django
+    # must trust the X-Forwarded-Proto header, otherwise request.is_secure() is
+    # always False — breaking SSL redirect (loop) and secure-cookie enforcement.
+    SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
+
     SECURE_SSL_REDIRECT = True
     SESSION_COOKIE_SECURE = True
     CSRF_COOKIE_SECURE = True
@@ -206,7 +219,11 @@ STATICFILES_DIRS = [
     BASE_DIR / 'static'
 ]
 
-STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
+STATICFILES_STORAGE = (
+    'django.contrib.staticfiles.storage.StaticFilesStorage'
+    if DEBUG
+    else 'whitenoise.storage.CompressedManifestStaticFilesStorage'
+)
 
 # Default primary key field type
 # https://docs.djangoproject.com/en/5.2/ref/settings/#default-auto-field
@@ -219,41 +236,15 @@ MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
 # Seconds allowed per quiz question (enforced server-side in session).
 QUIZ_QUESTION_SECONDS = int(os.environ.get("QUIZ_QUESTION_SECONDS", "60"))
 
-# LNCTU AccSoft college ERP authentication (student login verification).
-COLLEGE_LOGIN_URL = os.environ.get(
-    "COLLEGE_LOGIN_URL",
-    "https://accsoft.lnctu.ac.in/AccSoft2/StudentLogin.aspx",
-).strip()
-COLLEGE_PORTAL_URL = os.environ.get(
-    "COLLEGE_PORTAL_URL",
-    "https://accsoft.lnctu.ac.in/AccSoft2/Parents/ParentDesk1.aspx",
-).strip()
-COLLEGE_STUDENT_DETAILS_URL = os.environ.get(
-    "COLLEGE_STUDENT_DETAILS_URL",
-    "https://accsoft.lnctu.ac.in/AccSoft2/Parents/StudentPersonalDetails.aspx",
-).strip()
-_COLLEGE_BASE_URL = COLLEGE_LOGIN_URL.rsplit("/", 1)[0] + "/"
-COLLEGE_PROFILE_URLS = [
-    u.strip()
-    for u in os.environ.get(
-        "COLLEGE_PROFILE_URLS",
-        ",".join(
-            [
-                COLLEGE_STUDENT_DETAILS_URL,
-                COLLEGE_PORTAL_URL,
-                f"{_COLLEGE_BASE_URL}Parents/ParentDesk1.aspx",
-            ]
-        ),
-    ).split(",")
-    if u.strip()
-]
-COLLEGE_SUCCESS_URL_MARKER = os.environ.get(
-    "COLLEGE_SUCCESS_URL_MARKER",
-    "ParentDesk",
-).strip()
-COLLEGE_AUTH_TIMEOUT = int(os.environ.get("COLLEGE_AUTH_TIMEOUT", "25"))
-
 # OpenAI — optional; without a key, built-in sample questions are used for AI generate.
 OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY", "").strip()
 OPENAI_MODEL = os.environ.get("OPENAI_MODEL", "gpt-4o-mini").strip()
 
+
+
+# ═══════════════════════════════════════════════════════════════
+# Supabase Configuration (read from environment only — never hardcode keys)
+# ═══════════════════════════════════════════════════════════════
+SUPABASE_URL = os.environ.get("SUPABASE_URL", "").strip()
+SUPABASE_PUBLISHABLE_KEY = os.environ.get("SUPABASE_PUBLISHABLE_KEY", "").strip()
+SUPABASE_SECRET_KEY = os.environ.get("SUPABASE_SECRET_KEY", "").strip()

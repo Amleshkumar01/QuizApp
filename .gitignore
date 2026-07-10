@@ -1,0 +1,39 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+*.egg-info/
+dist/
+build/
+*.egg
+
+# Virtual environments
+myenv/
+venv/
+.env
+.venv/
+
+# Django
+*.sqlite3
+db.sqlite3
+/Quiz_app/staticfiles/
+/Quiz_app/media/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# Salesforce (not relevant)
+.sfdx/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Secrets
+.env
+*.pem

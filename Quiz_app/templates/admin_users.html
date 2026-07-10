@@ -1,21 +1,28 @@
 {% extends 'base.html' %}
 {% block title %}Manage Students | PlacementIQ{% endblock %}
 {% block content %}
-<div class="content-wrapper">
-    <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-4">
-        <h3 class="fw-bold mb-0">Manage Students</h3>
-        <div class="d-flex gap-2">
-            <a href="{% url 'admin_add_user' %}" class="btn btn-primary btn-sm">Add User</a>
-            <a href="{% url 'upload_users_csv' %}" class="btn btn-outline-secondary btn-sm">Upload CSV</a>
-            <a href="{% url 'admin_dashboard' %}" class="btn btn-outline-secondary btn-sm">Dashboard</a>
-        </div>
+<div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-4 fade-in-up">
+    <h2 class="fw-bold mb-0"><i class="bi bi-people me-2"></i>Manage Students</h2>
+    <div class="d-flex gap-2">
+        <a href="{% url 'admin_add_user' %}" class="btn btn-primary btn-sm">Add User</a>
+        <a href="{% url 'upload_users_csv' %}" class="btn btn-outline-secondary btn-sm">Upload CSV</a>
+        <a href="{% url 'admin_dashboard' %}" class="btn btn-outline-secondary btn-sm">Dashboard</a>
     </div>
+</div>
 
-    <div class="table-responsive table-modern">
-        <table class="table table-hover mb-0 align-middle">
+<form method="post" action="{% url 'admin_bulk_delete_users' %}" id="bulk-form" onsubmit="return confirm('Delete all selected users?');">
+{% csrf_token %}
+<div class="content-wrapper fade-in-up fade-in-up-delay-1">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <span class="small" style="color:var(--muted);">{{ users|length }} student(s)</span>
+        <button type="submit" class="btn btn-danger btn-sm"><i class="bi bi-trash me-1"></i>Delete Selected</button>
+    </div>
+    <div class="table-responsive">
+        <table class="table table-hover align-middle mb-0">
             <thead>
                 <tr>
-                    <th>Enrollment ID</th>
+                    <th><input type="checkbox" id="select-all"></th>
+                    <th>Username</th>
                     <th>Name</th>
                     <th>Email</th>
                     <th>Joined</th>
@@ -23,23 +30,36 @@
                 </tr>
             </thead>
             <tbody>
-                {% for user in users %}
+                {% for u in users %}
                 <tr>
-                    <td><code>{{ user.username }}</code>{% if user.is_staff %} <span class="badge bg-info">Staff</span>{% endif %}</td>
-                    <td>{{ user.first_name|default:"—" }}</td>
-                    <td>{{ user.email|default:"—" }}</td>
-                    <td class="text-muted">{{ user.date_joined|date:"d M Y" }}</td>
+                    <td><input type="checkbox" name="user_ids" value="{{ u.id }}"></td>
+                    <td><a href="{% url 'admin_student_detail' u.id %}" class="fw-semibold text-decoration-none">{{ u.username }}</a></td>
+                    <td>{{ u.first_name|default:"—" }} {{ u.last_name|default:"" }}</td>
+                    <td>{{ u.email|default:"—" }}</td>
+                    <td class="small" style="color:var(--muted);">{{ u.date_joined|date:"d M Y" }}</td>
                     <td>
-                        <a href="{% url 'edit_user' user.id %}" class="btn btn-warning btn-sm">Edit</a>
-                        <form method="post" action="{% url 'delete_user' user.id %}" class="d-inline" onsubmit="return confirm('Delete this user?');">
+                        <a href="{% url 'edit_user' u.id %}" class="btn btn-sm btn-outline-primary">Edit</a>
+                        <a href="{% url 'admin_reset_password' u.id %}" class="btn btn-sm btn-outline-secondary">Password</a>
+                        <form method="post" action="{% url 'delete_user' u.id %}" class="d-inline" onsubmit="return confirm('Delete?');">
                             {% csrf_token %}
-                            <button type="submit" class="btn btn-danger btn-sm">Delete</button>
+                            <button class="btn btn-sm btn-danger" type="submit">Del</button>
                         </form>
                     </td>
                 </tr>
+                {% empty %}
+                <tr><td colspan="6" style="color:var(--muted);">No students yet.</td></tr>
                 {% endfor %}
             </tbody>
         </table>
     </div>
 </div>
+</form>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.getElementById('select-all').addEventListener('change', function() {
+    document.querySelectorAll('input[name="user_ids"]').forEach(cb => cb.checked = this.checked);
+});
+</script>
 {% endblock %}

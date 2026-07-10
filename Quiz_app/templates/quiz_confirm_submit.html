@@ -1,14 +1,24 @@
 {% extends 'base.html' %}
-{% block title %}Submit Quiz | Quiz App{% endblock %}
+{% block title %}Submit Quiz | PlacementIQ{% endblock %}
+
 {% block content %}
-<div class="content-wrapper text-center">
-    <i class="bi bi-clipboard-check display-4 text-primary mb-3 d-block"></i>
-    <h4 class="fw-bold mb-2">Finish this quiz?</h4>
-    <p class="text-muted">Your answers are saved in this session. Submit now to record your score.</p>
-    <form method="post" action="{% url 'finalize_quiz' %}" class="d-inline">
-        {% csrf_token %}
-        <button type="submit" class="btn btn-primary btn-lg me-2">Submit results</button>
-        <a href="{% url 'home' %}" class="btn btn-outline-secondary btn-lg">Cancel</a>
-    </form>
+<div class="mx-auto text-center fade-in-up" style="max-width:480px;">
+    <div class="content-wrapper p-4 p-md-5">
+        <div class="d-inline-flex align-items-center justify-content-center mb-3"
+             style="width:72px;height:72px;border-radius:50%;background:var(--primary-soft);">
+            <i class="bi bi-clipboard-check" style="font-size:1.8rem;color:var(--primary);"></i>
+        </div>
+        <h3 class="fw-bold mb-2">Submit your answers?</h3>
+        <p class="mb-4" style="color:var(--muted);font-size:0.92rem;">Your responses are saved. Click submit to record your final score and see the results.</p>
+        <form method="post" action="{% url 'finalize_quiz' %}">
+            {% csrf_token %}
+            <div class="d-flex gap-2 justify-content-center">
+                <button type="submit" class="btn btn-primary">
+                    <i class="bi bi-check-lg me-1"></i>Submit
+                </button>
+                <a href="{% url 'home' %}" class="btn btn-outline-secondary">Cancel</a>
+            </div>
+        </form>
+    </div>
 </div>
 {% endblock %}

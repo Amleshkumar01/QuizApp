@@ -1,0 +1,23 @@
+{% extends 'base.html' %}
+{% block title %}{% if category %}Edit{% else %}Add{% endif %} Category | PlacementIQ{% endblock %}
+{% block content %}
+<div class="content-wrapper fade-in-up" style="max-width:480px;">
+    <h3 class="fw-bold mb-4">{% if category %}Edit{% else %}Add{% endif %} Category</h3>
+    <form method="post" enctype="multipart/form-data">
+        {% csrf_token %}
+        <div class="mb-3">
+            <label class="form-label">Category Name</label>
+            <input type="text" name="name" class="form-control" required value="{{ category.name|default:'' }}" placeholder="e.g. Aptitude, Coding">
+        </div>
+        <div class="mb-4">
+            <label class="form-label">Image (optional)</label>
+            <input type="file" name="image" class="form-control" accept="image/*">
+            {% if category.image %}
+            <div class="mt-2"><img src="{{ category.image.url }}" style="height:48px;"></div>
+            {% endif %}
+        </div>
+        <button type="submit" class="btn btn-primary">Save</button>
+        <a href="{% url 'admin_manage_categories' %}" class="btn btn-outline-secondary ms-2">Cancel</a>
+    </form>
+</div>
+{% endblock %}

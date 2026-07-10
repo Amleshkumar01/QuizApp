@@ -1,30 +1,82 @@
 {% extends 'base.html' %}
-{% block title %}Student Register | PlacementIQ{% endblock %}
+{% block title %}Create Account | PlacementIQ{% endblock %}
+
 {% block content %}
-<div class="content-wrapper auth-card">
-    <h2 class="text-center fw-bold mb-4"><i class="bi bi-person-plus me-2"></i>Register</h2>
-    <form method="post" novalidate>
-        {% csrf_token %}
-        <div class="mb-3">
-            <label class="form-label">Username</label>
-            <input type="text" name="username" required class="form-control" placeholder="Choose a username">
+<div class="auth-page fade-in-up">
+    <div class="auth-container wide">
+        <div class="auth-card">
+            <div class="auth-logo green">
+                <i class="bi bi-rocket-takeoff"></i>
+            </div>
+            <h1 class="auth-title">Create your account</h1>
+            <p class="auth-subtitle">Start practicing for placements today</p>
+
+            <form method="post" novalidate>
+                {% csrf_token %}
+
+                <div class="name-grid">
+                    <div class="auth-input-group">
+                        <label for="id_first_name">First Name</label>
+                        <i class="bi bi-person input-icon"></i>
+                        <input type="text" id="id_first_name" name="first_name"
+                               placeholder="John"
+                               value="{{ form_first_name|default:'' }}" autocomplete="given-name">
+                    </div>
+                    <div class="auth-input-group">
+                        <label for="id_last_name">Last Name</label>
+                        <i class="bi bi-person input-icon"></i>
+                        <input type="text" id="id_last_name" name="last_name"
+                               placeholder="Doe"
+                               value="{{ form_last_name|default:'' }}" autocomplete="family-name">
+                    </div>
+                </div>
+
+                <div class="auth-input-group">
+                    <label for="id_username">Username <span class="required">*</span></label>
+                    <i class="bi bi-at input-icon"></i>
+                    <input type="text" id="id_username" name="username" required
+                           placeholder="Choose a username"
+                           value="{{ form_username|default:'' }}" autocomplete="username">
+                </div>
+
+                <div class="auth-input-group">
+                    <label for="id_email">Email <span class="required">*</span></label>
+                    <i class="bi bi-envelope input-icon"></i>
+                    <input type="email" id="id_email" name="email" required
+                           placeholder="you@example.com"
+                           value="{{ form_email|default:'' }}" autocomplete="email">
+                </div>
+
+                <div class="auth-input-group">
+                    <label for="id_password">Password <span class="required">*</span></label>
+                    <i class="bi bi-lock input-icon"></i>
+                    <input type="password" id="id_password" name="password" required
+                           placeholder="Min. 8 characters"
+                           autocomplete="new-password">
+                    <p class="input-hint">At least 8 characters, avoid common passwords</p>
+                </div>
+
+                <div class="auth-input-group">
+                    <label for="id_confirm_password">Confirm Password <span class="required">*</span></label>
+                    <i class="bi bi-lock-fill input-icon"></i>
+                    <input type="password" id="id_confirm_password" name="confirm_password" required
+                           placeholder="Repeat your password"
+                           autocomplete="new-password">
+                </div>
+
+                <button type="submit" class="btn-signup">Create Account</button>
+            </form>
+
+            <div class="auth-link">
+                Already have an account? <a href="{% url 'student_login' %}">Sign in</a>
+            </div>
+
+            <div class="benefits-row">
+                <span class="benefit-item"><i class="bi bi-check-circle-fill"></i> Free forever</span>
+                <span class="benefit-item"><i class="bi bi-check-circle-fill"></i> No credit card</span>
+                <span class="benefit-item"><i class="bi bi-check-circle-fill"></i> Instant access</span>
+            </div>
         </div>
-        <div class="mb-3">
-            <label class="form-label">Email</label>
-            <input type="email" name="email" required class="form-control" placeholder="you@example.com">
-        </div>
-        <div class="mb-3">
-            <label class="form-label">Password</label>
-            <input type="password" name="password" required class="form-control" placeholder="Strong password">
-        </div>
-        <div class="mb-4">
-            <label class="form-label">Confirm Password</label>
-            <input type="password" name="confirm_password" required class="form-control" placeholder="Repeat password">
-        </div>
-        <button type="submit" class="btn btn-primary w-100 py-2">Create account</button>
-    </form>
-    <p class="text-center text-muted mt-3 mb-0">
-        Already registered? <a href="{% url 'student_login' %}">Login here</a>
-    </p>
+    </div>
 </div>
 {% endblock %}
