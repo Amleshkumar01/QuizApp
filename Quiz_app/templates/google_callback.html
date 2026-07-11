@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Signing in... | PlacementIQ</title>
+    <style>
+        body { font-family: -apple-system, sans-serif; display: flex; align-items: center; justify-content: center; min-height: 100vh; margin: 0; background: #f5f7fb; }
+        .card { text-align: center; padding: 3rem 2rem; background: #fff; border-radius: 16px; box-shadow: 0 4px 16px rgba(0,0,0,0.08); max-width: 400px; }
+        h2 { margin: 0 0 0.5rem; font-size: 1.3rem; }
+        p { color: #667; margin: 0; font-size: 0.9rem; }
+        a { color: #1f5eff; text-decoration: none; font-weight: 600; }
+    </style>
+</head>
+<body>
+    <div class="card">
+        <div id="loading">
+            <h2>Signing you in...</h2>
+            <p>Please wait while we complete your Google sign-in.</p>
+        </div>
+        <div id="error" style="display:none;">
+            <h2>Sign-in issue</h2>
+            <p style="margin-bottom:1rem;">Could not complete Google sign-in.</p>
+            <a href="/student/login/">Back to Login</a>
+        </div>
+    </div>
+    <script>
+    (function() {
+        // Extract tokens from hash fragment OR query string
+        var hash = window.location.hash ? window.location.hash.substring(1) : '';
+        var search = window.location.search ? window.location.search.substring(1) : '';
+        
+        // Try hash first, then query
+        var raw = hash || search;
+        
+        if (!raw) {
+            document.getElementById('loading').style.display = 'none';
+            document.getElementById('error').style.display = 'block';
+            return;
+        }
+        
+        var params = new URLSearchParams(raw);
+        var accessToken = params.get('access_token') || '';
+        var refreshToken = params.get('refresh_token') || '';
+        var code = params.get('code') || '';
+
+        // If Supabase returned an error in the hash/query, forward it to the
+        // server callback so the real reason is shown on the login page.
+        var errCode = params.get('error') || '';
+        var errDesc = params.get('error_description') || '';
+        if (errCode || errDesc) {
+            window.location.replace('/auth/google/callback/?error='
+                + encodeURIComponent(errCode) + '&error_description='
+                + encodeURIComponent(errDesc));
+            return;
+        }
+
+        if (!accessToken && !code) {
+            document.getElementById('loading').style.display = 'none';
+            document.getElementById('error').style.display = 'block';
+            return;
+        }
+        
+        // Build form and POST to server
+        var form = document.createElement('form');
+        form.method = 'POST';
+        form.action = '/auth/google/callback/';
+        
+        function addField(name, value) {
+            var input = document.createElement('input');
+            input.type = 'hidden';
+            input.name = name;
+            input.value = value;
+            form.appendChild(input);
+        }
+        
+        if (accessToken) {
+            addField('access_token', accessToken);
+            addField('refresh_token', refreshToken);
+        } else if (code) {
+            addField('code', code);
+        }
+        
+        document.body.appendChild(form);
+        form.submit();
+    })();
+    </script>
+</body>
+</html>

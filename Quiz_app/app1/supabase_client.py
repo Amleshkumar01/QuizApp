@@ -10,8 +10,11 @@ long-running server processes on Windows. This module provides equivalent
 functionality using urllib which is never blocked (whitelisted by Windows).
 """
 
+import base64
+import hashlib
 import json
 import logging
+import secrets
 import ssl
 import urllib.error
 import urllib.parse
@@ -24,6 +27,22 @@ from django.conf import settings
 logger = logging.getLogger(__name__)
 
 _SSL_CTX = ssl.create_default_context()
+
+
+def generate_pkce_pair():
+    """
+    Generate a PKCE (code_verifier, code_challenge) pair.
+    The verifier is a random string; the challenge is its SHA-256 hash,
+    base64url-encoded without padding. Used for the OAuth PKCE flow so
+    Supabase returns an authorization code as a server-readable query param.
+    """
+    verifier = secrets.token_urlsafe(64)[:96]  # 43-128 chars, URL-safe
+    challenge = (
+        base64.urlsafe_b64encode(hashlib.sha256(verifier.encode("ascii")).digest())
+        .decode("ascii")
+        .rstrip("=")
+    )
+    return verifier, challenge
 
 
 class SupabaseError(Exception):
@@ -260,3 +279,118 @@ def table_select(table: str, columns: str = "*", filters: dict = None, limit: in
 
     result = _api_call("GET", path, key=settings.SUPABASE_SECRET_KEY)
     return result if isinstance(result, list) else []
+
+
+def table_upsert(table: str, row: dict, on_conflict: str = None) -> list:
+    """
+    Upsert a row using the service role key (bypasses RLS).
+    Used to guarantee a profiles row exists for OAuth users.
+    """
+    path = f"/rest/v1/{table}"
+    if on_conflict:
+        path += f"?on_conflict={urllib.parse.quote(on_conflict)}"
+
+    url = f"{settings.SUPABASE_URL}{path}"
+    headers = {
+        "apikey": settings.SUPABASE_SECRET_KEY,
+        "Authorization": f"Bearer {settings.SUPABASE_SECRET_KEY}",
+        "Content-Type": "application/json",
+        "Prefer": "resolution=merge-duplicates,return=representation",
+    }
+    body = json.dumps(row).encode("utf-8")
+    req = urllib.request.Request(url, data=body, headers=headers, method="POST")
+    try:
+        with urllib.request.urlopen(req, timeout=20, context=_SSL_CTX) as resp:
+            resp_body = resp.read().decode("utf-8")
+            return json.loads(resp_body) if resp_body else []
+    except urllib.error.HTTPError as e:
+        error_body = ""
+        try:
+            error_body = e.read().decode("utf-8", "ignore")
+        except Exception:
+            pass
+        raise SupabaseError(error_body or str(e), status=e.code)
+    except urllib.error.URLError as e:
+        raise SupabaseError(f"Connection failed: {e.reason}")
+
+
+# ─── Password Reset ──────────────────────────────────────────────────────────
+
+def reset_password_for_email(email: str, redirect_to: str = None) -> None:
+    """Send a password reset email via Supabase GoTrue."""
+    data = {"email": email}
+    if redirect_to:
+        data["redirect_to"] = redirect_to
+    _api_call("POST", "/auth/v1/recover", data=data)
+
+
+# ─── OAuth ───────────────────────────────────────────────────────────────────
+
+def get_oauth_url(provider: str, redirect_to: str, code_challenge: str = None) -> str:
+    """
+    Get the Supabase OAuth URL for a given provider (e.g. 'google').
+
+    When code_challenge is provided, uses the PKCE flow: Supabase returns an
+    authorization code as a query parameter (?code=) to redirect_to — which is
+    server-readable (no JS/hash-fragment needed). This is the reliable flow.
+
+    redirect_to MUST be listed in Supabase Dashboard → Auth → URL Configuration
+    → Redirect URLs.
+    """
+    params = {
+        "provider": provider,
+        "redirect_to": redirect_to,
+    }
+    if code_challenge:
+        params["code_challenge"] = code_challenge
+        params["code_challenge_method"] = "s256"
+    return f"{settings.SUPABASE_URL}/auth/v1/authorize?{urllib.parse.urlencode(params)}"
+
+
+def exchange_code_for_session(code: str, code_verifier: str = None) -> AuthResponse:
+    """
+    Exchange an OAuth authorization code for a session (PKCE flow).
+    code_verifier must match the challenge sent in the authorize request.
+    """
+    data = {"auth_code": code}
+    if code_verifier:
+        data["code_verifier"] = code_verifier
+
+    result = _api_call(
+        "POST",
+        "/auth/v1/token?grant_type=pkce",
+        data=data,
+    )
+
+    user = None
+    session = None
+    if result:
+        if "access_token" in result:
+            session = SupabaseSession(
+                access_token=result["access_token"],
+                refresh_token=result.get("refresh_token", ""),
+                expires_in=result.get("expires_in", 3600),
+            )
+        if "user" in result and result["user"]:
+            u = result["user"]
+            user = SupabaseUser(
+                id=u["id"],
+                email=u.get("email", ""),
+                user_metadata=u.get("user_metadata", {}),
+                identities=u.get("identities", []),
+            )
+
+    return AuthResponse(user=user, session=session)
+
+
+# ─── Update User Password ────────────────────────────────────────────────────
+
+def update_user_password(access_token: str, new_password: str) -> bool:
+    """Update user's password using their access token (from reset link)."""
+    result = _api_call(
+        "PUT",
+        "/auth/v1/user",
+        data={"password": new_password},
+        token=access_token,
+    )
+    return result is not None

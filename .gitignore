@@ -20,6 +20,16 @@ db.sqlite3
 /Quiz_app/staticfiles/
 /Quiz_app/media/
 
+# Database backups, dumps, and exported data (may contain user info)
+*.sqlite3.bak
+*.sqlite3.backup
+db.sqlite3.*
+*.dump
+*.sql.gz
+data_backup*.json
+*_export*.json
+datadump*.json
+
 # IDE
 .idea/
 .vscode/

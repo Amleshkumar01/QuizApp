@@ -27,7 +27,8 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 
 # SECURITY WARNING: keep the secret key used in production secret!
 # Default True for local dev; set DJANGO_DEBUG=false in production.
-DEBUG = os.environ.get("DJANGO_DEBUG", "true").strip().lower() in (
+# Accept DEBUG (preferred) or the legacy DJANGO_DEBUG for backward compatibility.
+DEBUG = os.environ.get("DEBUG", os.environ.get("DJANGO_DEBUG", "true")).strip().lower() in (
     "1",
     "true",
     "yes",
@@ -42,14 +43,22 @@ if not SECRET_KEY:
     else:
         raise ImproperlyConfigured("DJANGO_SECRET_KEY must be set when DJANGO_DEBUG is false.")
 
+# Accept ALLOWED_HOSTS (preferred) or legacy DJANGO_ALLOWED_HOSTS.
 ALLOWED_HOSTS = [
     h.strip()
     for h in os.environ.get(
-        "DJANGO_ALLOWED_HOSTS",
-        "localhost,127.0.0.1,quizapp-s39c.onrender.com"
+        "ALLOWED_HOSTS",
+        os.environ.get(
+            "DJANGO_ALLOWED_HOSTS",
+            "localhost,127.0.0.1,quizapp-s39c.onrender.com",
+        ),
     ).split(",")
     if h.strip()
 ]
+
+# Public base URL of the app (used for building absolute callback/redirect URLs
+# in production behind a proxy). Read from env; no secret value.
+APP_BASE_URL = os.environ.get("APP_BASE_URL", "").strip().rstrip("/")
 
 
 
@@ -61,8 +70,11 @@ ALLOWED_HOSTS = [
 CSRF_TRUSTED_ORIGINS = [
     o.strip()
     for o in os.environ.get(
-        "DJANGO_CSRF_TRUSTED_ORIGINS",
-        "https://quizapp-s39c.onrender.com",
+        "CSRF_TRUSTED_ORIGINS",
+        os.environ.get(
+            "DJANGO_CSRF_TRUSTED_ORIGINS",
+            "https://quizapp-s39c.onrender.com",
+        ),
     ).split(",")
     if o.strip()
 ]
@@ -169,13 +181,39 @@ WSGI_APPLICATION = 'Quiz_app.wsgi.application'
 
 # Database
 # https://docs.djangoproject.com/en/5.2/ref/settings/#databases
+#
+# Primary: Supabase PostgreSQL via DATABASE_URL (use the Supabase "Session
+# Pooler" connection string). SSL is required and connections are reused.
+# Fallback: local SQLite — ONLY when DEBUG is on AND DATABASE_URL is absent.
+# Production (DEBUG=False) requires DATABASE_URL and fails clearly otherwise.
+#
+# DATABASE_URL is read from the environment only and is never logged/printed.
+DATABASE_URL = os.environ.get("DATABASE_URL", "").strip()
 
-DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': BASE_DIR / 'db.sqlite3',
+if DATABASE_URL:
+    import dj_database_url
+
+    DATABASES = {
+        "default": dj_database_url.parse(
+            DATABASE_URL,
+            conn_max_age=60,          # reuse connections for up to 60s
+            conn_health_checks=True,  # verify a reused connection is alive
+            ssl_require=True,         # Supabase requires TLS
+        )
     }
-}
+elif DEBUG:
+    # Local development convenience only. Never used when DEBUG is False.
+    DATABASES = {
+        "default": {
+            "ENGINE": "django.db.backends.sqlite3",
+            "NAME": BASE_DIR / "db.sqlite3",
+        }
+    }
+else:
+    raise ImproperlyConfigured(
+        "DATABASE_URL must be set in production (DEBUG=False). "
+        "Provide the Supabase Session Pooler PostgreSQL connection string."
+    )
 
 
 # Password validation

@@ -1,0 +1,104 @@
+[
+  {
+    "model": "auth.user",
+    "fields": {
+      "password": "pbkdf2_sha256$1000000$2PUiQPjhn2BixESrdX8azD$v40tc+OB7tj2S6nMM0Vy+bSV91H77Oone0dt0pgL0Xw=",
+      "last_login": "2026-07-11T04:47:08.840Z",
+      "is_superuser": true,
+      "username": "admin",
+      "first_name": "",
+      "last_name": "",
+      "email": "",
+      "is_staff": true,
+      "is_active": true,
+      "date_joined": "2025-09-04T06:30:47.170Z",
+      "groups": [],
+      "user_permissions": []
+    }
+  },
+  {
+    "model": "auth.user",
+    "fields": {
+      "password": "pbkdf2_sha256$1000000$gjKjjUK1FlPZ3VOyHmxI8G$6QPL4vqtYIOKDZTGO+N20qwWquuyM2Ax+PcM6MgQWNs=",
+      "last_login": "2026-07-11T04:06:03.929Z",
+      "is_superuser": false,
+      "username": "yadav_353",
+      "first_name": "vikash",
+      "last_name": "yadav",
+      "email": "amlesh.cyber@gmail.com",
+      "is_staff": false,
+      "is_active": true,
+      "date_joined": "2026-07-10T21:31:56.798Z",
+      "groups": [],
+      "user_permissions": []
+    }
+  },
+  {
+    "model": "auth.user",
+    "fields": {
+      "password": "pbkdf2_sha256$1000000$U0TvPAxiQE3YD5VFtx5PCp$4FDi/rVOGatGYEqFaeeBNAFcGl4wBrhU6eEw652I5Rg=",
+      "last_login": "2026-07-11T04:45:23.977Z",
+      "is_superuser": false,
+      "username": "amlesh_212",
+      "first_name": "Amlesh",
+      "last_name": "kumar",
+      "email": "amleshkumar.it@gmail.com",
+      "is_staff": false,
+      "is_active": true,
+      "date_joined": "2026-07-10T21:38:04.162Z",
+      "groups": [],
+      "user_permissions": []
+    }
+  },
+  {
+    "model": "auth.user",
+    "fields": {
+      "password": "!97n4ASQElCvHTGgkVedvUDUEQPUn265LUvtAMYOh",
+      "last_login": "2026-07-11T04:43:13.946Z",
+      "is_superuser": false,
+      "username": "amlesh_21223",
+      "first_name": "Amlesh",
+      "last_name": "kumar",
+      "email": "amleshkumar647544@gmail.com",
+      "is_staff": false,
+      "is_active": true,
+      "date_joined": "2026-07-11T03:08:51.343Z",
+      "groups": [],
+      "user_permissions": []
+    }
+  },
+  {
+    "model": "auth.user",
+    "fields": {
+      "password": "!eNGby9e4da315RQtPE59uO4xZ9uM9nOWx9BJjCUM",
+      "last_login": "2026-07-11T04:45:45.020Z",
+      "is_superuser": false,
+      "username": "yadavamlesh004",
+      "first_name": "",
+      "last_name": "",
+      "email": "yadavamlesh004@gmail.com",
+      "is_staff": false,
+      "is_active": true,
+      "date_joined": "2026-07-11T04:39:34.734Z",
+      "groups": [],
+      "user_permissions": []
+    }
+  },
+  {
+    "model": "auth.user",
+    "fields": {
+      "password": "!RG86NiM20gLGo4eeahj7wndfzLnzZxNYTa2zViuY",
+      "last_login": "2026-07-11T04:42:45.869Z",
+      "is_superuser": false,
+      "username": "amleshyadav647544",
+      "first_name": "",
+      "last_name": "",
+      "email": "amleshyadav647544@gmail.com",
+      "is_staff": false,
+      "is_active": true,
+      "date_joined": "2026-07-11T04:40:09.329Z",
+      "groups": [],
+      "user_permissions": []
+    }
+  }
+]

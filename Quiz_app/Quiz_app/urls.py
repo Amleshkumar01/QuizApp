@@ -57,7 +57,14 @@ urlpatterns = [
     # Student portal (Supabase Auth)
     path("student/login/", supabase_auth.supabase_login_view, name="student_login"),
     path("student/register/", supabase_auth.supabase_register_view, name="student_register"),
+    path("student/forgot-password/", supabase_auth.supabase_forgot_password_view, name="forgot_password"),
+    path("student/reset-password/", supabase_auth.supabase_reset_password_view, name="reset_password"),
     path("student/dashboard/", views.student_dashboard, name="student_dashboard"),
+
+    # OAuth
+    path("auth/google/", supabase_auth.supabase_google_login_view, name="google_login"),
+    path("auth/google/signup/", supabase_auth.supabase_google_signup_view, name="google_signup"),
+    path("auth/google/callback/", supabase_auth.supabase_google_callback_view, name="google_callback"),
 
     # Legacy auth URLs (redirects)
     path("login/", views.login_view, name="login"),

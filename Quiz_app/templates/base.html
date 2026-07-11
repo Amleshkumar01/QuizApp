@@ -186,6 +186,62 @@
     </footer>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+    // Supabase hash-fragment router (fallback for implicit flow).
+    // Routes recovery tokens to the reset-password page and OAuth tokens to the
+    // Google callback. PKCE is primary (?code=), so this rarely runs.
+    (function(){
+        var path = window.location.pathname;
+        var h = window.location.hash;
+        if (!h || h.indexOf('access_token') === -1) return;
+
+        var p = new URLSearchParams(h.substring(1));
+        var token = p.get('access_token');
+        if (!token) return;
+        var type = p.get('type') || '';
+
+        // Password recovery: let the reset-password page handle it.
+        if (type === 'recovery') {
+            if (path.indexOf('/student/reset-password/') === -1) {
+                window.location.replace('/student/reset-password/' + h);
+            }
+            return; // On the reset page, its own script reads the hash.
+        }
+
+        // The Google callback page handles its own hash.
+        if (path.indexOf('/auth/google/callback/') !== -1) return;
+
+        // Otherwise treat as an OAuth sign-in token.
+        var f = document.createElement('form');
+        f.method = 'POST';
+        f.action = '/auth/google/callback/';
+        var add = function(n,v){var i=document.createElement('input');i.type='hidden';i.name=n;i.value=v;f.appendChild(i);};
+        add('access_token', token);
+        add('refresh_token', p.get('refresh_token')||'');
+        document.body.appendChild(f);
+        f.submit();
+    })();
+
+    // Loading states for auth forms/buttons (scoped to auth pages by class).
+    document.addEventListener('DOMContentLoaded', function(){
+        document.querySelectorAll('form').forEach(function(form){
+            var btn = form.querySelector('.btn-signin, .btn-signup');
+            if (!btn) return;
+            form.addEventListener('submit', function(){
+                if (form.checkValidity && !form.checkValidity()) return;
+                btn.disabled = true;
+                btn.textContent = 'Please wait...';
+                btn.style.opacity = '0.7';
+            });
+        });
+        document.querySelectorAll('.btn-google').forEach(function(link){
+            link.addEventListener('click', function(){
+                link.style.opacity = '0.7';
+                link.style.pointerEvents = 'none';
+            });
+        });
+    });
+    </script>
     {% block extra_js %}{% endblock %}
 </body>
 </html>
