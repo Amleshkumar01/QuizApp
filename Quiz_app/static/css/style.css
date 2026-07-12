@@ -2146,3 +2146,123 @@ h6 {
 :root.dark-mode .auth-subtitle {
     color: #94a3b8;
 }
+
+/* ═══ Global dark mode text visibility fixes ═══ */
+/* Bootstrap .text-muted and .text-dark use hardcoded colors that break in dark mode */
+:root.dark-mode .text-muted {
+    color: #94a3b8 !important;
+}
+
+:root.dark-mode .text-dark {
+    color: #e2e8f0 !important;
+}
+
+:root.dark-mode .fw-bold,
+:root.dark-mode h1, :root.dark-mode h2, :root.dark-mode h3,
+:root.dark-mode h4, :root.dark-mode h5, :root.dark-mode h6 {
+    color: var(--ink);
+}
+
+/* Drive cards on home page */
+:root.dark-mode .quiz-card,
+:root.dark-mode .quiz-card .card-body {
+    background: var(--surface);
+    color: var(--text);
+}
+
+:root.dark-mode .quiz-card h6 {
+    color: var(--ink);
+}
+
+:root.dark-mode .quiz-card .small,
+:root.dark-mode .quiz-card p {
+    color: #94a3b8;
+}
+
+/* Company cards on home page */
+:root.dark-mode .category-card,
+:root.dark-mode .category-card .card-body {
+    background: var(--surface);
+    color: var(--text);
+}
+
+:root.dark-mode .category-card h6 {
+    color: var(--ink);
+}
+
+:root.dark-mode .category-card p {
+    color: #94a3b8;
+}
+
+/* Section headings and kickers */
+:root.dark-mode .section-kicker,
+:root.dark-mode .section-heading span {
+    color: #94a3b8;
+}
+
+:root.dark-mode .section-heading h2,
+:root.dark-mode .app-section-title h4 {
+    color: var(--ink);
+}
+
+/* Feature cards text */
+:root.dark-mode .feature-card h6 {
+    color: var(--ink);
+}
+
+:root.dark-mode .feature-card p {
+    color: #94a3b8;
+}
+
+/* Content wrapper */
+:root.dark-mode .content-wrapper h5 {
+    color: var(--ink);
+}
+
+/* Badges inside cards */
+:root.dark-mode .badge {
+    color: inherit;
+}
+
+/* Student dashboard cards */
+:root.dark-mode .card {
+    background: var(--surface);
+    border-color: var(--line);
+    color: var(--text);
+}
+
+:root.dark-mode .card h6,
+:root.dark-mode .card .fw-bold {
+    color: var(--ink);
+}
+
+/* Drive card metadata text */
+:root.dark-mode .drive-card p,
+:root.dark-mode .drive-card .small {
+    color: #94a3b8;
+}
+
+/* General small / muted-pattern text */
+:root.dark-mode small:not(.badge) {
+    color: #94a3b8;
+}
+
+/* Quiz attempt / results text */
+:root.dark-mode .quiz-option {
+    background: var(--surface);
+    border-color: var(--line);
+    color: var(--text);
+}
+
+:root.dark-mode .form-label {
+    color: #cbd5e1;
+}
+
+/* Links in dark mode */
+:root.dark-mode a:not(.btn):not(.nav-link):not(.navbar-brand) {
+    color: #93b4f8;
+}
+
+:root.dark-mode .auth-link a {
+    color: #93b4f8;
+}
