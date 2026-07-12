@@ -1125,7 +1125,7 @@ h6 {
 .auth-input-group .input-icon {
     position: absolute;
     left: 0.9rem;
-    bottom: 0.82rem;
+    top: 2.45rem;
     color: var(--muted);
     pointer-events: none;
 }
