@@ -1,0 +1,85 @@
+{% extends 'base.html' %}
+{% block title %}My Profile | PlacementIQ{% endblock %}
+
+{% block content %}
+<div class="fade-in-up" style="max-width:640px;margin:0 auto;">
+    <div class="page-header">
+        <div>
+            <h2 class="fw-bold mb-1">My Profile</h2>
+            <p class="mb-0" style="color:var(--muted);">Update your details so teachers can see your info.</p>
+        </div>
+        <a href="{% url 'student_dashboard' %}" class="btn btn-outline-secondary btn-sm"><i class="bi bi-arrow-left me-1"></i>Dashboard</a>
+    </div>
+
+    <div class="tpanel">
+        <div class="tpanel-head">
+            <span><i class="bi bi-person-vcard me-1"></i>Profile Details</span>
+            <span class="pill pill-blue">{{ user.email }}</span>
+        </div>
+        <div class="tpanel-body" style="padding:1.25rem;">
+            <form method="post" novalidate>
+                {% csrf_token %}
+
+                <div class="row g-3 mb-3">
+                    <div class="col-md-6">
+                        <label class="form-label fw-semibold">First Name</label>
+                        <input type="text" name="first_name" class="form-control" value="{{ user.first_name }}" placeholder="Your first name">
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label fw-semibold">Last Name</label>
+                        <input type="text" name="last_name" class="form-control" value="{{ user.last_name }}" placeholder="Your last name">
+                    </div>
+                </div>
+
+                <div class="row g-3 mb-3">
+                    <div class="col-md-6">
+                        <label class="form-label fw-semibold">Roll Number</label>
+                        <input type="text" name="roll_number" class="form-control" value="{{ profile.roll_number|default_if_none:'' }}" placeholder="e.g. 2021CS101">
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label fw-semibold">College</label>
+                        <input type="text" name="college" class="form-control" value="{{ profile.college }}" placeholder="Your college name">
+                    </div>
+                </div>
+
+                <div class="row g-3 mb-3">
+                    <div class="col-md-4">
+                        <label class="form-label fw-semibold">Branch</label>
+                        <input type="text" name="branch" class="form-control" value="{{ profile.branch }}" placeholder="e.g. CSE, ECE">
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label fw-semibold">Semester</label>
+                        <input type="number" name="semester" class="form-control" min="1" max="12" value="{{ profile.semester|default_if_none:'' }}" placeholder="1-12">
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label fw-semibold">Batch</label>
+                        <input type="text" name="batch" class="form-control" value="{{ profile.batch }}" placeholder="e.g. 2025">
+                    </div>
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label fw-semibold">Phone</label>
+                    <input type="text" name="phone" class="form-control" value="{{ profile.phone }}" placeholder="Your phone number">
+                </div>
+
+                <div class="d-flex gap-2">
+                    <button type="submit" class="btn btn-primary"><i class="bi bi-check-lg me-1"></i>Save Profile</button>
+                    <a href="{% url 'student_dashboard' %}" class="btn btn-outline-secondary">Cancel</a>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div class="tpanel mt-3">
+        <div class="tpanel-head"><span><i class="bi bi-info-circle me-1"></i>Account Info</span></div>
+        <div class="tpanel-body" style="padding:1rem 1.25rem;">
+            <div class="row small">
+                <div class="col-md-4 mb-2"><span class="text-muted">Username:</span> {{ user.username }}</div>
+                <div class="col-md-4 mb-2"><span class="text-muted">Email:</span> {{ user.email }}</div>
+                <div class="col-md-4 mb-2"><span class="text-muted">Joined:</span> {{ user.date_joined|date:"d M Y" }}</div>
+            </div>
+            <p class="text-muted small mb-0">Username and email cannot be changed here. Contact your administrator if needed.</p>
+        </div>
+    </div>
+</div>
+{% endblock %}

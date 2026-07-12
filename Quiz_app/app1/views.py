@@ -1118,6 +1118,46 @@ def my_attempts(request):
 
 
 @student_required
+def student_profile_view(request):
+    """Student can view and update their own profile (safe fields only)."""
+    from .models import StudentProfile
+
+    profile, _ = StudentProfile.objects.get_or_create(user=request.user)
+
+    if request.method == "POST":
+        # Only allow safe fields — never is_staff, is_superuser, groups, password
+        request.user.first_name = (request.POST.get("first_name") or "").strip()[:150]
+        request.user.last_name = (request.POST.get("last_name") or "").strip()[:150]
+        request.user.save(update_fields=["first_name", "last_name"])
+
+        profile.roll_number = (request.POST.get("roll_number") or "").strip()[:50] or None
+        profile.college = (request.POST.get("college") or "").strip()[:200]
+        profile.branch = (request.POST.get("branch") or "").strip()[:120]
+        profile.phone = (request.POST.get("phone") or "").strip()[:20]
+        profile.batch = (request.POST.get("batch") or "").strip()[:50]
+        sem = (request.POST.get("semester") or "").strip()
+        if sem:
+            try:
+                sem_val = int(sem)
+                if 1 <= sem_val <= 12:
+                    profile.semester = sem_val
+            except ValueError:
+                pass
+        else:
+            profile.semester = None
+        try:
+            profile.save()
+            messages.success(request, "Profile updated successfully!")
+        except IntegrityError:
+            messages.error(request, "That roll number is already taken by another student.")
+        return redirect("student_profile")
+
+    return render(request, "student_profile.html", {
+        "profile": profile,
+    })
+
+
+@student_required
 def student_analytics(request):
     weak_topics = student_weak_topics(request.user)
     section_stats = list(student_section_performance(request.user))

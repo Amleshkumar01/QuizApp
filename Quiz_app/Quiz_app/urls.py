@@ -101,6 +101,7 @@ urlpatterns = [
     path("student/forgot-password/", supabase_auth.supabase_forgot_password_view, name="forgot_password"),
     path("student/reset-password/", supabase_auth.supabase_reset_password_view, name="reset_password"),
     path("student/dashboard/", views.student_dashboard, name="student_dashboard"),
+    path("student/profile/", views.student_profile_view, name="student_profile"),
 
     # OAuth
     path("auth/google/", supabase_auth.supabase_google_login_view, name="google_login"),

@@ -67,14 +67,17 @@
                             </button>
                         </li>
                         <li class="nav-item">
+                            {% if not user.is_staff %}
+                            <a class="nav-link nav-user-pill" href="{% url 'student_profile' %}" title="My Profile">
+                                <i class="bi bi-person-circle me-1"></i>
+                                {{ student_display_name|default:user.username }}
+                            </a>
+                            {% else %}
                             <span class="nav-link nav-user-pill">
                                 <i class="bi bi-person-circle me-1"></i>
-                                {% if not user.is_staff %}
-                                    {{ student_display_name|default:user.username }}
-                                {% else %}
-                                    {{ user.username }}
-                                {% endif %}
+                                {{ user.username }}
                             </span>
+                            {% endif %}
                         </li>
                         <li class="nav-item">
                             <form method="post" action="{% url 'logout' %}" class="d-inline">
