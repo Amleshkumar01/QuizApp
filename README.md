@@ -1,248 +1,253 @@
-# Quiz App — Secure & Modern Django Quiz Platform
+# PlacementIQ
 
-**English** | [हिंदी में पढ़ें](#हिंदी-में-प्रोजेक्ट-कैसे-चलाएं)
+AI-powered campus placement preparation platform built with Django + Supabase.
+Students practice company-specific tests; staff manage companies, drives, quizzes,
+students and results through role-based portals.
 
-A Django 5 web application for timed multiple-choice quizzes. Users register, browse categories, take quizzes, and view scores. Staff manage users and quizzes; questions/options are added via Django admin.
-
----
-
-## Features
-
-| Area | What you get |
-|------|----------------|
-| **Users** | Register, login, logout, password validation |
-| **Quizzes** | Shuffled questions, **server-side timer** (60s/question), score & history |
-| **Security** | CSRF, login throttling, registration limits, session hardening, staff-only admin |
-| **UI** | Bootstrap 5, Inter font, responsive cards, progress bar, score ring |
-| **Admin** | Custom dashboard + Django `/admin/` for questions & options |
+> Quick note (Hinglish): Ye README batati hai — site local pe kaise **run** karni hai,
+> kya **edit** karna hai kahan se, aur website **kaise kaam** karti hai. Neeche sab
+> steps diye hain.
 
 ---
 
-## Quick start (English)
+## 1. Tech stack
 
-### 1. Go to the Django project folder
+- **Backend:** Django 5.2 (Python 3.12)
+- **Database:** Supabase PostgreSQL (production data). Local tests use SQLite.
+- **Auth:**
+  - Students → Supabase Auth (email/password + Google OAuth)
+  - Staff (Super Admin / Teacher) → Django authentication
+- **Frontend:** Django templates + Bootstrap 5.3 + Bootstrap Icons (no build step)
+- **AI questions:** OpenAI (optional; falls back to a built-in question bank)
+
+---
+
+## 2. Folder layout (where things live)
+
+```
+QuizApp/                         <- repository root
+├─ myenv/                        <- Python virtual environment
+├─ README.md                     <- this file
+└─ Quiz_app/                     <- Django project root (run commands from HERE)
+   ├─ manage.py                  <- Django entry point
+   ├─ .env                       <- environment variables (secrets, DB URL, DEBUG)
+   ├─ db.sqlite3                 <- local SQLite (only used if no DATABASE_URL)
+   ├─ templates/                 <- ALL HTML pages
+   │  ├─ base.html               <- global layout + navbar + footer
+   │  ├─ admin_*.html            <- Super Admin portal pages
+   │  ├─ teacher/                <- Teacher portal pages (base_teacher.html = layout)
+   │  └─ admin/                  <- Super Admin teacher-management + audit logs
+   ├─ static/
+   │  ├─ css/style.css           <- ALL site styling (colors, cards, layout)
+   │  └─ js/                     <- theme toggle + small scripts
+   ├─ media/                     <- uploaded files (company logos, etc.)
+   └─ Quiz_app/                  <- settings package
+      ├─ settings.py             <- configuration (DB, security, apps)
+      └─ urls.py                 <- URL routes (which URL -> which view)
+   └─ app1/                      <- the main application (all Python logic)
+      ├─ models.py               <- database tables (Company, Quiz, Attempt, ...)
+      ├─ views.py                <- student + Super Admin views
+      ├─ teacher_views.py        <- Teacher portal views
+      ├─ admin_teacher_views.py  <- Super Admin: manage teachers + audit logs
+      ├─ forms.py                <- input forms (whitelisted, safe)
+      ├─ permissions.py          <- role helpers (is_super_admin/is_teacher/...)
+      ├─ decorators.py           <- access guards (@superadmin_required, ...)
+      ├─ services.py             <- audit logging, CSV safety, pending students
+      ├─ supabase_auth.py        <- student login/register/Google/reset
+      ├─ analytics.py            <- analytics queries
+      ├─ ai_service.py           <- AI question generation
+      ├─ context_processors.py   <- role flags available in every template
+      ├─ migrations/             <- database schema history
+      └─ management/commands/    <- custom commands (setup_roles, set_superadmin)
+```
+
+**Rule of thumb:**
+- Change how a page **looks** → edit files in `templates/` and `static/css/style.css`.
+- Change what a page **does** (logic, data) → edit the matching view in `app1/`.
+- Change the **database shape** → edit `app1/models.py`, then make + run migrations.
+- Change a **URL** → edit `Quiz_app/urls.py`.
+
+---
+
+## 3. Run the site locally
+
+> **Important:** Run every command from the project root
+> `C:\Users\amles\OneDrive\Desktop\django\QuizApp\Quiz_app`
+> (the folder that contains `manage.py`). Do **not** `cd` into the inner
+> `Quiz_app\Quiz_app` folder.
+
+### One-time setup
+```powershell
+# from QuizApp\Quiz_app
+..\myenv\Scripts\python.exe -m pip install -r ..\requirements.txt
+..\myenv\Scripts\python.exe manage.py migrate
+..\myenv\Scripts\python.exe manage.py setup_roles
+```
+
+### Start the server
+```powershell
+# from QuizApp\Quiz_app
+..\myenv\Scripts\python.exe manage.py runserver 127.0.0.1:3000
+```
+Then open: **http://localhost:3000/**
+
+Stop the server with **Ctrl + C**.
+
+> Paste each command on its own line, not as one block.
+
+---
+
+## 4. Environment variables (`.env`)
+
+The file `Quiz_app/.env` controls configuration. Key values:
+
+| Variable            | Meaning                                                        |
+|---------------------|----------------------------------------------------------------|
+| `DJANGO_DEBUG`      | `true` for local development, `false` only in production.      |
+| `DATABASE_URL`      | Supabase PostgreSQL connection string (do not share/commit).   |
+| `APP_BASE_URL`      | Base URL used for auth callbacks (`http://localhost:3000`).    |
+| `ALLOWED_HOSTS`     | Hosts allowed to serve the app.                                |
+| `DJANGO_SECRET_KEY` | Django secret (required when `DEBUG=false`).                   |
+| `SUPABASE_*`        | Supabase keys for student auth (keep secret).                  |
+
+> **For local testing keep `DJANGO_DEBUG=true`.** When `false`, Django forces
+> HTTPS redirects and secure cookies, which the local dev server cannot serve —
+> that causes the "failed to load" / redirect-to-https problem.
+
+---
+
+## 5. User roles (how the website works)
+
+Three roles, enforced on the backend (not just hidden in the UI):
+
+| Role         | Django flags                          | Logs in at        | Lands on            |
+|--------------|---------------------------------------|-------------------|---------------------|
+| Super Admin  | `is_superuser=True`, `is_staff=True`  | `/admin/login/`   | `/admin/dashboard/` |
+| Teacher      | `is_staff=True`, in "Teacher" group   | `/admin/login/`   | `/teacher/dashboard/`|
+| Student      | `is_staff=False` (Supabase Auth)      | `/student/login/` | `/student/dashboard/`|
+
+**Super Admin** — full control: manage teachers, students, companies, drives,
+quizzes, results, analytics, settings, audit logs.
+
+**Teacher** — dedicated `/teacher/` panel:
+- Companies (view all; create/edit own or assigned; cannot delete)
+- Placement drives (create/edit own or assigned)
+- Quizzes + questions (create/edit/delete own; CSV upload; AI generate)
+- Students (view, safe-field edit only; cannot delete or change roles)
+- Results (view, export; import offline results)
+- Analytics (scoped to managed quizzes)
+- Import/Export with an import history + audit log
+
+**Student** — existing experience is unchanged: browse companies, attempt active
+tests, see results and analytics. Google/email login works via Supabase.
+
+### Key safety rules built in
+- Teachers can only edit their **own / assigned** companies, drives, quizzes
+  (checked on every URL — no editing by guessing IDs).
+- Deleting a quiz that has results **archives** it instead (results preserved).
+- Student edit form can never set `is_staff`, `is_superuser`, groups, password
+  or Supabase IDs.
+- CSV exports escape `= + - @` to prevent spreadsheet formula injection.
+- Every sensitive action is written to the **Audit Log**.
+
+---
+
+## 6. Log in / test accounts
+
+### Super Admin
+Current username: `admin`. To change the username/password (secure, hidden prompt):
+```powershell
+..\myenv\Scripts\python.exe manage.py set_superadmin
+```
+
+### Test Teacher (created for you)
+- URL: `http://localhost:3000/admin/login/`
+- Username: `teacher1`
+- Password: `Teacher@12345`
+
+> This is a test account. Delete or deactivate it before real deployment
+> (Super Admin → Teachers → toggle/deactivate).
+
+### Create more teachers
+Log in as Super Admin → **Teachers → Add Teacher**.
+
+---
+
+## 7. Editing common things (how-to)
+
+**Change colors / card styles / fonts**
+→ `Quiz_app/static/css/style.css` (CSS variables like `--primary`, `--muted`).
+
+**Edit a page's text/layout**
+→ find the template in `Quiz_app/templates/`. Teacher pages extend
+`templates/teacher/base_teacher.html`; everything extends `templates/base.html`.
+
+**Change the sidebar/menu**
+→ Teacher menu: `templates/teacher/base_teacher.html`.
+→ Top navbar: `templates/base.html`.
+
+**Add / change a field on a model**
+1. Edit `app1/models.py`
+2. `..\myenv\Scripts\python.exe manage.py makemigrations`
+3. `..\myenv\Scripts\python.exe manage.py migrate`
+
+**Add a new page**
+1. Add a view function in the right `*_views.py`
+2. Add a route in `Quiz_app/urls.py`
+3. Add a template in `templates/`
+
+**Add a permission/role rule**
+→ `app1/permissions.py` (helpers) and `app1/decorators.py` (guards).
+
+---
+
+## 8. Running the tests
 
 ```powershell
-cd C:\Users\amles\OneDrive\Desktop\django\QuizApp\Quiz_app
+# from QuizApp\Quiz_app
+..\myenv\Scripts\python.exe manage.py check
+..\myenv\Scripts\python.exe manage.py test app1
 ```
+Tests run on a fast in-memory SQLite database (they never touch Supabase).
+Expected result: all tests pass (`OK`).
 
-### 2. Virtual environment (recommended)
+---
 
-**Windows PowerShell:**
+## 9. Troubleshooting
 
-```powershell
-python -m venv myenv
-.\myenv\Scripts\Activate.ps1
-```
+| Symptom | Cause / Fix |
+|---------|-------------|
+| `'..\myenv\Scripts\python.exe' is not recognized` | You are in the wrong folder. Be in `QuizApp\Quiz_app` (has `manage.py`). If you see `...\Quiz_app\Quiz_app>`, run `cd ..`. |
+| Browser "failed to load" / keeps redirecting to `https://` | `DJANGO_DEBUG` is `false`. Set `DJANGO_DEBUG=true` in `.env` and restart the server. |
+| `Invalid HTTP_HOST header` | Add the host to `ALLOWED_HOSTS` in `.env`. |
+| Port already in use | Run on another port, e.g. `runserver 127.0.0.1:8000`. |
+| Static files/CSS missing after `DEBUG=false` | Run `manage.py collectstatic` (only needed for production). |
+| Changed `.env` but nothing changed | Restart the server (it reads `.env` at startup). |
 
-**macOS / Linux:**
+---
 
+## 10. Deployment (later)
+
+Deployment is done **after** local testing. In short, on the server:
 ```bash
-python3 -m venv myenv
-source myenv/bin/activate
-```
-
-### 3. Install packages
-
-```bash
-pip install -r ..\requirements.txt
-```
-
-Or:
-
-```bash
-pip install django pillow
-```
-
-### 4. Database setup
-
-```bash
+cd /var/www/placementiq && git pull
+source venv/bin/activate && cd Quiz_app
 python manage.py migrate
+python manage.py setup_roles
+python manage.py collectstatic --noinput
+python manage.py check
+sudo systemctl restart placementiq && sudo systemctl reload nginx
 ```
-
-### 5. Create admin user
-
-```bash
-python manage.py createsuperuser
-```
-
-Mark the user as **Staff** in Django admin if they should use `/admin/dashboard/`.
-
-### 6. Run the server
-
-```bash
-python manage.py runserver
-```
-
-Open: **http://127.0.0.1:8000/**
-
-Stop with `Ctrl+C`.
+Set `DJANGO_DEBUG=false` and a real `DJANGO_SECRET_KEY` in the server's `.env`.
+Also apply `Quiz_app/supabase_security_hardening_teacher.sql` in Supabase to lock
+down the new tables (enables RLS + revokes public API access).
 
 ---
 
-## Adding quiz content
+## 11. Security reminders
 
-1. Run the server and open **http://127.0.0.1:8000/admin/**
-2. Log in as superuser
-3. Create a **Category** (optional image)
-4. Create a **Quiz** (link to category, set status **active**)
-5. Add **Questions** and **Options** (mark one option as correct per question)
-6. On the site home page, open the category and **Start Quiz**
-
-Custom staff pages (`/admin/quizzes/`) manage quiz metadata only; questions are in Django admin.
-
----
-
-## Main URLs
-
-| URL | Description |
-|-----|-------------|
-| `/` | Home — categories |
-| `/register/` | Sign up |
-| `/login/` | Sign in |
-| `/category/<id>/` | Quizzes in category |
-| `/quiz/<id>/start/` | Begin attempt (login required) |
-| `/my-attempts/` | Your history |
-| `/admin/` | Django admin (questions, options) |
-| `/admin/dashboard/` | Staff dashboard |
-
----
-
-## Environment variables (production)
-
-Copy `.env.example` to `.env` and set:
-
-| Variable | Purpose |
-|----------|---------|
-| `DJANGO_SECRET_KEY` | Required when `DJANGO_DEBUG=false` |
-| `DJANGO_DEBUG` | `false` in production |
-| `DJANGO_ALLOWED_HOSTS` | e.g. `example.com,www.example.com` |
-| `DJANGO_CSRF_TRUSTED_ORIGINS` | e.g. `https://example.com` |
-| `QUIZ_QUESTION_SECONDS` | Server timer per question (default `60`) |
-
----
-
-## Security overview
-
-- **CSRF** on all POST forms
-- **Login throttle** — 5 failures per username / 25 per IP per 15 min
-- **Registration throttle** — 10 sign-ups per IP per hour
-- **Quiz timer** — deadline stored in session; expired answers are skipped server-side
-- **Submit lock** — prevents duplicate attempts from double-click
-- **Staff routes** — `staff_member_required`; superusers protected from staff delete/edit
-- **Production** — secure cookies, HSTS, SSL redirect when `DEBUG` is off
-
-For multiple server processes, use **Redis** for `CACHES` instead of LocMem.
-
----
-
-## Project structure
-
-```text
-QuizApp/
-├── README.md
-├── requirements.txt
-├── .env.example
-└── Quiz_app/              ← run commands here
-    ├── manage.py
-    ├── db.sqlite3
-    ├── Quiz_app/          ← settings, urls
-    ├── app1/              ← models, views
-    ├── templates/
-    └── static/
-        ├── css/style.css
-        └── js/quiz.js
-```
-
----
-
-## Troubleshooting
-
-| Problem | Fix |
-|---------|-----|
-| `No module named 'django'` | Activate venv, `pip install -r requirements.txt` |
-| DB errors | `python manage.py migrate` |
-| Port in use | `python manage.py runserver 8001` |
-| Static CSS missing in prod | `python manage.py collectstatic` |
-
----
-
-## हिंदी में — प्रोजेक्ट कैसे चलाएं
-
-### यह ऐप क्या करता है?
-
-यह एक **Quiz Application** है। User register/login करके category चुनता है, quiz attempt करता है, score देखता है। Admin users और quizzes manage कर सकता है। Questions Django admin (`/admin/`) से add होते हैं।
-
-### चलाने के स्टेप्स
-
-**1.** Terminal खोलें और project folder में जाएं:
-
-```powershell
-cd C:\Users\amles\OneDrive\Desktop\django\QuizApp\Quiz_app
-```
-
-**2.** Virtual environment बनाएं और activate करें:
-
-```powershell
-python -m venv myenv
-.\myenv\Scripts\Activate.ps1
-```
-
-**3.** Packages install करें:
-
-```bash
-pip install -r ..\requirements.txt
-```
-
-**4.** Database तैयार करें:
-
-```bash
-python manage.py migrate
-```
-
-**5.** Admin user बनाएं:
-
-```bash
-python manage.py createsuperuser
-```
-
-**6.** Server start करें:
-
-```bash
-python manage.py runserver
-```
-
-Browser में खोलें: **http://127.0.0.1:8000/**
-
-### Quiz कैसे add करें?
-
-1. `http://127.0.0.1:8000/admin/` पर login करें  
-2. **Category** बनाएं  
-3. **Quiz** बनाएं (status = **active**)  
-4. **Question** और **Option** add करें (एक सही answer mark करें)  
-5. Home page से category खोलकर **Start Quiz** दबाएं  
-
-### सुरक्षा (Security)
-
-- Login पर गलत password की कोशिश limit होती है  
-- Registration spam से बचाव (IP limit)  
-- Quiz का timer server पर भी check होता है  
-- Staff के अलावा admin pages नहीं खुलते  
-
-### समस्या आए तो
-
-- Django नहीं मिला → venv activate करके `pip install` फिर से करें  
-- Database error → `python manage.py migrate` चलाएं  
-- Port busy → `python manage.py runserver 8001` use करें  
-
----
-
-## Tech stack
-
-- **Backend:** Django 5.2, SQLite  
-- **Frontend:** Bootstrap 5.3, Bootstrap Icons, custom CSS  
-- **Auth:** Django built-in `User` model  
-
----
-
-*Quiz App — learn, attempt, improve.*
+- Never commit `.env` or share Supabase keys / DB passwords.
+- Rotate any keys that were previously exposed.
+- Keep `DJANGO_DEBUG=false` in production only.
+- The `supabase_security_hardening*.sql` files lock Django tables away from the
+  public Supabase Data API — apply them after deploying schema changes.

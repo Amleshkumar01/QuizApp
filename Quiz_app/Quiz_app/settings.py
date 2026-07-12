@@ -17,7 +17,7 @@ from django.core.exceptions import ImproperlyConfigured
 
 # Load environment variables from .env file (dev convenience; in prod use real env vars).
 from dotenv import load_dotenv
-load_dotenv(Path(__file__).resolve().parent.parent / ".env")
+load_dotenv(Path(__file__).resolve().parent.parent / ".env", override=True)
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
