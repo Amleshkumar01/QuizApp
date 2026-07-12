@@ -35,9 +35,9 @@ from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
 from django.views.decorators.http import require_http_methods, require_POST
 
-from .ai_service import explain_answer, generate_questions, number_question_items, personalized_suggestions
+from .ai_service import explain_answer, generate_questions, number_question_items, personalized_suggestions, strip_question_number
 from .analytics import admin_placement_stats, student_section_performance, student_weak_topics, suggested_tests_for_user
-from .models import Answer, Attempt, Category, Company, Option, Question, Quiz
+from .models import Answer, Attempt, Category, Company, Option, PlacementDrive, Question, Quiz
 
 _LOGIN_THROTTLE_SECONDS = 900
 _LOGIN_MAX_PER_USERNAME = 5
@@ -98,12 +98,14 @@ def _parse_drive_date(value):
 def _save_ai_questions(quiz, items, start_number=None):
     if start_number is None:
         start_number = quiz.question_set.count() + 1
+    # Store clean text (no "Q17." prefix). Questions are shuffled at quiz start,
+    # so a stored number would be misleading; the UI shows the live position.
     numbered = number_question_items(items, start=start_number)
     with transaction.atomic():
         for item in numbered:
             question = Question.objects.create(
                 quiz=quiz,
-                text=item["text"],
+                text=strip_question_number(item["text"]),
                 explanation=item.get("explanation", ""),
                 topic=item.get("topic", ""),
                 ai_generated=True,
@@ -114,46 +116,6 @@ def _save_ai_questions(quiz, items, start_number=None):
                     text=opt_text,
                     is_correct=idx == item["correct_index"],
                 )
-
-
-def _ensure_company_practice_quiz(company, section, difficulty):
-    """Auto-create a practice test with AI questions when a company has none."""
-    section = _valid_section(section)
-    difficulty = _valid_difficulty(difficulty)
-    section_label = dict(Quiz.SECTION_CHOICES).get(section, section.title())
-    title = f"{company.name} — {section_label} ({difficulty.title()}) Practice"
-
-    quiz = (
-        Quiz.objects.filter(company=company, section=section, difficulty=difficulty, status="active")
-        .annotate(qcount=Count("question"))
-        .filter(qcount__gt=0)
-        .first()
-    )
-    if quiz:
-        return quiz
-
-    quiz = Quiz.objects.filter(
-        company=company, section=section, difficulty=difficulty, title=title
-    ).first()
-    if not quiz:
-        quiz = Quiz.objects.create(
-            title=title,
-            company=company,
-            section=section,
-            difficulty=difficulty,
-            category=_category_for_section(section),
-            status="active",
-            duration_minutes=30,
-            target_question_count=10,
-            marks_per_question=Decimal("1"),
-            negative_marks=Decimal("0.25"),
-        )
-
-    if quiz.question_set.count() == 0:
-        items, _ = generate_questions(company.name, section, difficulty, 10)
-        _save_ai_questions(quiz, items, start_number=1)
-
-    return quiz
 
 
 def _apply_quiz_form(quiz, post):
@@ -418,18 +380,62 @@ def _test_timed_out(request):
     return time.time() > float(deadline)
 
 
-def _quiz_attempt_context(request, quiz, current_question, options, question_index, question_ids, is_last_question):
+def _no_store(response):
+    """Prevent browsers from caching quiz pages (fixes stale page on Back)."""
+    response["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0"
+    response["Pragma"] = "no-cache"
+    response["Expires"] = "0"
+    return response
+
+
+def _submit_and_redirect(request, quiz, timed_out=False):
+    """Finalize the attempt (double-submit safe) and go to the result page."""
+    if not _acquire_quiz_submit_lock(request.user.pk, quiz.pk):
+        messages.warning(request, "This quiz is already being submitted.")
+        return _no_store(redirect("my_attempts"))
+    try:
+        attempt = _persist_quiz_attempt(request, quiz)
+    finally:
+        _release_quiz_submit_lock(request.user.pk, quiz.pk)
+    if timed_out:
+        messages.info(request, "Time is up. Your test has been submitted.")
+    return _no_store(redirect("quiz_result", attempt_id=attempt.pk))
+
+
+def _quiz_attempt_context(request, quiz, current_question, options, question_index, question_ids):
+    answers = request.session.get("answers", {})
+    selected_option_id = answers.get(str(current_question.id))
+    total = len(question_ids)
+
+    palette = []
+    answered_count = 0
+    for i, qid in enumerate(question_ids):
+        is_answered = str(qid) in answers
+        if is_answered:
+            answered_count += 1
+        palette.append({
+            "num": i + 1,
+            "index": i,
+            "answered": is_answered,
+            "current": i == question_index,
+        })
+
     test_remaining = _test_seconds_remaining(request)
     return {
         "quiz": quiz,
         "question": current_question,
         "options": options,
+        "selected_option_id": selected_option_id,
         "question_number": question_index + 1,
-        "total_questions": len(question_ids),
-        "is_last_question": is_last_question,
-        "seconds_remaining": test_remaining if test_remaining is not None else _seconds_remaining(request),
-        "question_seconds": quiz.duration_minutes * 60 if test_remaining is not None else settings.QUIZ_QUESTION_SECONDS,
+        "question_index": question_index,
+        "total_questions": total,
+        "answered_count": answered_count,
+        "unanswered_count": total - answered_count,
+        "is_first_question": question_index == 0,
+        "is_last_question": question_index + 1 >= total,
+        "palette": palette,
         "uses_test_timer": test_remaining is not None,
+        "seconds_remaining": test_remaining if test_remaining is not None else 0,
     }
 
 
@@ -519,26 +525,6 @@ def _init_quiz_attempt(request, quiz):
         request.session["quiz_deadline"] = now + quiz.duration_minutes * 60
     else:
         request.session["quiz_deadline"] = None
-
-
-def _finish_or_advance_quiz(request, quiz, question_index, question_ids, is_last_question, question_id=None, option_id=None):
-    if question_id is not None and option_id is not None:
-        answers = request.session.get("answers", {})
-        answers[str(question_id)] = option_id
-        request.session["answers"] = answers
-
-    if is_last_question:
-        if not _acquire_quiz_submit_lock(request.user.pk, quiz.pk):
-            messages.warning(request, "This quiz is already being submitted.")
-            return redirect("my_attempts")
-        try:
-            attempt = _persist_quiz_attempt(request, quiz)
-        finally:
-            _release_quiz_submit_lock(request.user.pk, quiz.pk)
-        return redirect("quiz_result", attempt_id=attempt.pk)
-
-    request.session["question_index"] = question_index + 1
-    return redirect("attempt_quiz", quiz_id=quiz.pk)
 
 
 def django_admin_blocked(request):
@@ -662,7 +648,11 @@ def logout_view(request):
 def student_dashboard(request):
     companies = (
         Company.objects.filter(is_active=True)
-        .annotate(test_count=Count("tests", filter=Q(tests__status="active")))
+        .annotate(test_count=Count(
+            "tests",
+            filter=Q(tests__status="active", tests__is_archived=False, tests__question__isnull=False),
+            distinct=True,
+        ))
         .order_by("name")
     )
     recent_attempts = (
@@ -692,7 +682,8 @@ def student_dashboard(request):
             )
 
     upcoming_drives = (
-        Quiz.objects.filter(status="active", drive_date__gte=date.today(), company__isnull=False)
+        PlacementDrive.objects.filter(drive_date__gte=date.today(), company__is_active=True)
+        .exclude(status="cancelled")
         .select_related("company")
         .order_by("drive_date")[:4]
     )
@@ -713,11 +704,16 @@ def student_dashboard(request):
 def home(request):
     companies = (
         Company.objects.filter(is_active=True)
-        .annotate(test_count=Count("tests", filter=Q(tests__status="active")))
+        .annotate(test_count=Count(
+            "tests",
+            filter=Q(tests__status="active", tests__is_archived=False, tests__question__isnull=False),
+            distinct=True,
+        ))
         .order_by("name")
     )
     upcoming_drives = (
-        Quiz.objects.filter(status="active", drive_date__gte=date.today(), company__isnull=False)
+        PlacementDrive.objects.filter(drive_date__gte=date.today(), company__is_active=True)
+        .exclude(status="cancelled")
         .select_related("company")
         .order_by("drive_date")[:6]
     )
@@ -735,10 +731,11 @@ def company_tests(request, company_id):
 
     practice_section = section if section in dict(Quiz.SECTION_CHOICES) else "aptitude"
     practice_level = difficulty if difficulty in dict(Quiz.DIFFICULTY_CHOICES) else "medium"
-    _ensure_company_practice_quiz(company, practice_section, practice_level)
 
+    # NOTE: We NEVER auto-create quizzes here. A quiz only exists if a teacher/
+    # admin explicitly created it. Opening a company must not touch the database.
     tests = (
-        Quiz.objects.filter(company=company, status="active")
+        Quiz.objects.filter(company=company, status="active", is_archived=False)
         .annotate(total_questions=Count("question"))
         .filter(total_questions__gt=0)
         .order_by("section", "difficulty", "title")
@@ -896,8 +893,29 @@ def start_quiz(request, quiz_id):
         messages.warning(request, "This quiz has no questions.")
         return redirect("home")
 
+    # A quiz is ONLY initialized here (via the Start button), never elsewhere.
     _init_quiz_attempt(request, quiz)
-    return redirect("attempt_quiz", quiz_id=quiz.id)
+    return _no_store(redirect("attempt_quiz", quiz_id=quiz.id))
+
+
+def _save_current_answer(request, question_ids, current_index):
+    """Persist the submitted option for the current question into the session
+    answers dict. Skipping (no option) is allowed and leaves any prior answer."""
+    option_id = request.POST.get("option")
+    if not option_id:
+        return
+    try:
+        oid = int(option_id)
+    except (TypeError, ValueError):
+        return
+    if not (0 <= current_index < len(question_ids)):
+        return
+    current_qid = question_ids[current_index]
+    if Option.objects.filter(pk=oid, question_id=current_qid).exists():
+        answers = request.session.get("answers", {})
+        answers[str(current_qid)] = oid
+        request.session["answers"] = answers
+        request.session.modified = True
 
 
 @student_required
@@ -910,121 +928,86 @@ def attempt_quiz(request, quiz_id):
     quiz = get_object_or_404(Quiz, id=quiz_id)
     if quiz.status != "active":
         messages.warning(request, "This quiz is not currently active.")
-        return redirect("home")
+        return _no_store(redirect("student_dashboard"))
 
+    # NO auto-initialize. If there is no valid active session for THIS quiz,
+    # send the student to their dashboard (fixes browser-Back re-opening a quiz).
     question_ids = request.session.get("question_ids")
     if request.session.get("quiz_id") != quiz.id or not _session_quiz_state_ok(quiz, question_ids):
-        _init_quiz_attempt(request, quiz)
-        question_ids = request.session.get("question_ids", [])
+        messages.info(request, "Please start the test using the Start Quiz button.")
+        return _no_store(redirect("student_dashboard"))
+
+    total = len(question_ids)
+
+    # Test timer expired → auto final submit.
+    if _test_timed_out(request):
+        return _submit_and_redirect(request, quiz, timed_out=True)
+
+    if request.method == "POST":
+        try:
+            current_index = int(request.POST.get("current_index", request.session.get("question_index", 0)))
+        except (TypeError, ValueError):
+            current_index = 0
+        current_index = max(0, min(current_index, total - 1))
+
+        # Always save the current selection (skip allowed if none chosen).
+        _save_current_answer(request, question_ids, current_index)
+
+        goto = request.POST.get("goto")
+        action = (request.POST.get("action") or "").strip()
+        if not action and goto is not None:
+            action = "jump"
+
+        if action == "timeout" or _test_timed_out(request):
+            return _submit_and_redirect(request, quiz, timed_out=True)
+
+        if action == "submit":
+            request.session["question_index"] = current_index
+            return _no_store(redirect("quiz_confirm"))
+
+        # Navigation
+        if action == "prev":
+            target = current_index - 1
+        elif action == "jump":
+            try:
+                target = int(goto)
+            except (TypeError, ValueError):
+                target = current_index
+        else:  # "next" (default)
+            target = current_index + 1
+
+        request.session["question_index"] = max(0, min(target, total - 1))
+        return _no_store(redirect("attempt_quiz", quiz_id=quiz.id))
+
+    # GET — allow ?q=<index> deep link/jump
+    q_param = request.GET.get("q")
+    if q_param is not None:
+        try:
+            request.session["question_index"] = max(0, min(int(q_param), total - 1))
+        except (TypeError, ValueError):
+            pass
 
     question_index = request.session.get("question_index", 0)
     try:
         question_index = int(question_index)
     except (TypeError, ValueError):
         question_index = 0
+    question_index = max(0, min(question_index, total - 1))
+    request.session["question_index"] = question_index
 
-    if _test_timed_out(request):
-        messages.warning(request, "Test time is up. Submitting your answers.")
-        if not _acquire_quiz_submit_lock(request.user.pk, quiz.pk):
-            return redirect("my_attempts")
-        try:
-            attempt = _persist_quiz_attempt(request, quiz)
-        finally:
-            _release_quiz_submit_lock(request.user.pk, quiz.pk)
-        return redirect("quiz_result", attempt_id=attempt.pk)
-
-    if question_index >= len(question_ids):
-        # Legacy or edge state: require explicit POST to finalize (no GET side effects).
-        return render(request, "quiz_confirm_submit.html", {"quiz": quiz})
-
-    current_question_id = question_ids[question_index]
-    current_question = get_object_or_404(Question, id=current_question_id, quiz=quiz)
+    current_question = get_object_or_404(Question, id=question_ids[question_index], quiz=quiz)
     options = current_question.options.all()
-    is_last_question = question_index + 1 >= len(question_ids)
 
-    if request.method == "POST":
-        if _test_timed_out(request):
-            messages.warning(request, "Test time is up. Submitting your answers.")
-            return _finish_or_advance_quiz(
-                request,
-                quiz,
-                question_index,
-                question_ids,
-                True,
-            )
-
-        if _question_timed_out(request):
-            messages.warning(request, "Time is up. Moving to the next question.")
-            return _finish_or_advance_quiz(
-                request,
-                quiz,
-                question_index,
-                question_ids,
-                is_last_question,
-            )
-
-        selected_option_id = request.POST.get("option")
-        if not selected_option_id:
-            messages.error(request, "Please select an option.")
-            _refresh_question_deadline(request)
-            return render(
-                request,
-                "quiz_attempt.html",
-                _quiz_attempt_context(
-                    request, quiz, current_question, options, question_index, question_ids, is_last_question
-                ),
-            )
-
-        try:
-            selected_option_id = int(selected_option_id)
-        except (TypeError, ValueError):
-            messages.error(request, "Invalid option submitted.")
-            _refresh_question_deadline(request)
-            return render(
-                request,
-                "quiz_attempt.html",
-                _quiz_attempt_context(
-                    request, quiz, current_question, options, question_index, question_ids, is_last_question
-                ),
-            )
-
-        try:
-            selected_option = options.get(id=selected_option_id)
-        except Option.DoesNotExist:
-            messages.error(request, "Invalid option submitted.")
-            _refresh_question_deadline(request)
-            return render(
-                request,
-                "quiz_attempt.html",
-                _quiz_attempt_context(
-                    request, quiz, current_question, options, question_index, question_ids, is_last_question
-                ),
-            )
-
-        return _finish_or_advance_quiz(
-            request,
-            quiz,
-            question_index,
-            question_ids,
-            is_last_question,
-            question_id=current_question.id,
-            option_id=selected_option.id,
-        )
-
-    _refresh_question_deadline(request)
-    return render(
+    return _no_store(render(
         request,
         "quiz_attempt.html",
-        _quiz_attempt_context(
-            request, quiz, current_question, options, question_index, question_ids, is_last_question
-        ),
-    )
+        _quiz_attempt_context(request, quiz, current_question, options, question_index, question_ids),
+    ))
 
 
 @student_required
-@require_POST
-def finalize_quiz(request):
-    """POST-only: finish quiz when session was left in 'index >= len' state (e.g. older flow or refresh)."""
+def quiz_confirm(request):
+    """Confirmation screen shown before final submission."""
     blocked = _staff_quiz_blocked_response(request)
     if blocked:
         _clear_quiz_session(request)
@@ -1032,34 +1015,55 @@ def finalize_quiz(request):
 
     quiz_id = request.session.get("quiz_id")
     question_ids = request.session.get("question_ids")
-    question_index = request.session.get("question_index", 0)
-    try:
-        question_index = int(question_index)
-    except (TypeError, ValueError):
-        question_index = 0
+    if not quiz_id or not isinstance(question_ids, list) or not question_ids:
+        messages.info(request, "No active quiz session.")
+        return _no_store(redirect("student_dashboard"))
+
+    quiz = get_object_or_404(Quiz, pk=quiz_id)
+    if not _session_quiz_state_ok(quiz, question_ids):
+        messages.info(request, "Quiz session expired or was reset.")
+        return _no_store(redirect("student_dashboard"))
+
+    if _test_timed_out(request):
+        return _submit_and_redirect(request, quiz, timed_out=True)
+
+    answers = request.session.get("answers", {})
+    total = len(question_ids)
+    answered = sum(1 for qid in question_ids if str(qid) in answers)
+
+    return _no_store(render(request, "quiz_confirm_submit.html", {
+        "quiz": quiz,
+        "total_questions": total,
+        "answered_count": answered,
+        "unanswered_count": total - answered,
+        "current_index": request.session.get("question_index", 0),
+    }))
+
+
+@student_required
+@require_POST
+def finalize_quiz(request):
+    """POST-only final submission. A student may submit at any time — even with
+    unanswered questions (they simply score 0 / count as skipped)."""
+    blocked = _staff_quiz_blocked_response(request)
+    if blocked:
+        _clear_quiz_session(request)
+        return blocked
+
+    quiz_id = request.session.get("quiz_id")
+    question_ids = request.session.get("question_ids")
 
     if not quiz_id or not isinstance(question_ids, list) or not question_ids:
-        messages.warning(request, "No active quiz session.")
-        return redirect("home")
+        messages.info(request, "No active quiz session.")
+        return _no_store(redirect("student_dashboard"))
 
-    quiz = get_object_or_404(Quiz, pk=quiz_id, status="active")
+    quiz = get_object_or_404(Quiz, pk=quiz_id)
 
     if not _session_quiz_state_ok(quiz, question_ids):
-        messages.warning(request, "Quiz session expired or was reset.")
-        return redirect("home")
+        messages.info(request, "Quiz session expired or was reset.")
+        return _no_store(redirect("student_dashboard"))
 
-    if question_index < len(question_ids):
-        messages.error(request, "You have not finished all questions yet.")
-        return redirect("attempt_quiz", quiz_id=quiz.id)
-
-    if not _acquire_quiz_submit_lock(request.user.pk, quiz.pk):
-        messages.warning(request, "This quiz is already being submitted.")
-        return redirect("my_attempts")
-    try:
-        attempt = _persist_quiz_attempt(request, quiz)
-    finally:
-        _release_quiz_submit_lock(request.user.pk, quiz.pk)
-    return redirect("quiz_result", attempt_id=attempt.pk)
+    return _submit_and_redirect(request, quiz)
 
 
 @student_required
@@ -1070,28 +1074,9 @@ def quiz_result(request, attempt_id):
         user=request.user,
     )
     percentage = round((attempt.score / attempt.total) * 100) if attempt.total else 0
-    answer_rows = []
-    for ans in attempt.answer_set.select_related("question", "selected_option").prefetch_related(
-        "question__options"
-    ):
-        correct_option = ans.question.options.filter(is_correct=True).first()
-        explanation = ans.question.explanation
-        if not explanation and correct_option:
-            explanation = explain_answer(
-                ans.question.text,
-                correct_option.text,
-                ans.selected_option.text,
-            )
-        answer_rows.append(
-            {
-                "question": ans.question,
-                "selected": ans.selected_option,
-                "correct_option": correct_option,
-                "is_correct": ans.is_correct,
-                "explanation": explanation,
-            }
-        )
-    return render(
+    # Skipped needs no DB field: total minus answered (correct + wrong).
+    skipped = max(0, attempt.total - attempt.correct_count - attempt.wrong_count)
+    return _no_store(render(
         request,
         "quiz_result.html",
         {
@@ -1100,11 +1085,11 @@ def quiz_result(request, attempt_id):
             "quiz": attempt.quiz,
             "percentage": percentage,
             "attempt": attempt,
-            "answer_rows": answer_rows,
             "wrong_count": attempt.wrong_count,
             "correct_count": attempt.correct_count,
+            "skipped_count": skipped,
         },
-    )
+    ))
 
 
 @student_required
@@ -1423,11 +1408,24 @@ def admin_ai_generate_questions(request, quiz_id):
 
         company_name = quiz.company.name if quiz.company else "Campus Placement"
         items, source = generate_questions(company_name, quiz.section, quiz.difficulty, count)
+        allow_fallback = getattr(settings, "AI_ALLOW_FALLBACK", False)
+
+        # Reject only when there is nothing to save, or AI failed AND fallback
+        # is disabled (strict mode).
+        if not items or (source != "ai" and not allow_fallback):
+            messages.error(
+                request,
+                "AI question generation failed. No questions were added. "
+                "Set OPENAI_API_KEY (or AI_ALLOW_FALLBACK=true) in .env, try again, "
+                "or add questions manually.",
+            )
+            return redirect("admin_ai_generate", quiz_id=quiz.id)
         start_num = quiz.question_set.count() + 1
         _save_ai_questions(quiz, items, start_number=start_num)
-
-        label = "AI" if source == "ai" else "built-in question bank (set OPENAI_API_KEY for live AI)"
-        messages.success(request, f"Generated {len(items)} questions via {label}.")
+        if source == "ai":
+            messages.success(request, f"Generated {len(items)} AI questions.")
+        else:
+            messages.success(request, f"Added {len(items)} questions from the built-in question bank.")
         return redirect("admin_quiz_questions", quiz_id=quiz.id)
 
     return render(request, "admin_ai_generate.html", {"quiz": quiz})

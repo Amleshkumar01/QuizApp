@@ -140,20 +140,19 @@
         <h5 class="fw-bold mb-0"><i class="bi bi-calendar-event me-2 text-primary"></i>Upcoming Campus Drives</h5>
     </div>
     <div class="row g-3">
-        {% for test in upcoming_drives %}
+        {% for drive in upcoming_drives %}
         <div class="col-md-6 col-lg-4">
             <div class="card quiz-card h-100">
                 <div class="card-body p-3">
-                    <div class="d-flex align-items-center gap-2 mb-2">
-                        <span class="badge" style="background: var(--primary-soft); color: var(--primary-dark);">{{ test.company.name }}</span>
-                        <span class="badge" style="background: var(--warning-soft); color: var(--warning);">{{ test.drive_date|date:"d M" }}</span>
+                    <div class="d-flex align-items-center gap-2 mb-2 flex-wrap">
+                        <span class="badge" style="background: var(--primary-soft); color: var(--primary-dark);">{{ drive.company.name }}</span>
+                        <span class="badge" style="background: var(--warning-soft); color: var(--warning);">{{ drive.drive_date|date:"d M Y" }}</span>
                     </div>
-                    <h6 class="fw-bold mb-1" style="font-size: 0.9rem;">{{ test.title }}</h6>
-                    <p class="text-muted small mb-2">
-                        {{ test.get_section_display }} &middot; {{ test.get_difficulty_display }}
-                    </p>
-                    <a href="{% url 'company_tests' test.company.id %}?section={{ test.section }}&level={{ test.difficulty }}" class="btn btn-sm btn-outline-primary">
-                        <i class="bi bi-play-fill me-1"></i>Practice Now
+                    <h6 class="fw-bold mb-1" style="font-size: 0.9rem;">{{ drive.title }}</h6>
+                    {% if drive.job_role %}<p class="text-muted small mb-1">{{ drive.job_role }}</p>{% endif %}
+                    {% if drive.location %}<p class="text-muted small mb-2"><i class="bi bi-geo-alt me-1"></i>{{ drive.location }}</p>{% endif %}
+                    <a href="{% url 'company_tests' drive.company.id %}" class="btn btn-sm btn-outline-primary">
+                        <i class="bi bi-play-fill me-1"></i>View Tests
                     </a>
                 </div>
             </div>

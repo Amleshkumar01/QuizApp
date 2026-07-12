@@ -289,9 +289,23 @@ MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
 # Seconds allowed per quiz question (enforced server-side in session).
 QUIZ_QUESTION_SECONDS = int(os.environ.get("QUIZ_QUESTION_SECONDS", "60"))
 
-# OpenAI — optional; without a key, built-in sample questions are used for AI generate.
+# OpenAI — for real AI question generation. Set OPENAI_API_KEY in .env.
 OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY", "").strip()
 OPENAI_MODEL = os.environ.get("OPENAI_MODEL", "gpt-4o-mini").strip()
+
+# Google Gemini (AI Studio) — alternative AI provider. Free tier available.
+# Get key from: https://aistudio.google.com/app/apikey
+GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY", "").strip()
+GEMINI_MODEL = os.environ.get("GEMINI_MODEL", "gemini-2.0-flash").strip()
+
+# When True, the built-in curated question bank is used as a fallback if the
+# OpenAI call is unavailable/fails, so the "AI Generate" button always produces
+# questions. When False (default), a failed AI call adds NO questions and shows
+# an error (strict mode). Set AI_ALLOW_FALLBACK=true in .env to always work
+# without an OpenAI key.
+AI_ALLOW_FALLBACK = os.environ.get("AI_ALLOW_FALLBACK", "false").strip().lower() in (
+    "1", "true", "yes", "on",
+)
 
 
 

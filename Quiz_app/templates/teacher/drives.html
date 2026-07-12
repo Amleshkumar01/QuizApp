@@ -22,9 +22,27 @@
                         {% elif d.status == 'cancelled' %}<span class="pill pill-red">Cancelled</span>
                         {% else %}<span class="pill pill-grey">Draft</span>{% endif %}
                     </td>
-                    <td class="text-end">
+                    <td class="text-end text-nowrap">
                         {% if d.id in manageable_ids %}
                         <a href="{% url 'teacher_edit_drive' d.id %}" class="btn btn-outline-primary btn-sm" title="Edit"><i class="bi bi-pencil"></i></a>
+                        <button type="button" class="btn btn-outline-danger btn-sm" title="Delete"
+                                data-bs-toggle="modal" data-bs-target="#deldrive{{ d.id }}"><i class="bi bi-trash"></i></button>
+                        <div class="modal fade" id="deldrive{{ d.id }}" tabindex="-1">
+                          <div class="modal-dialog modal-dialog-centered"><div class="modal-content">
+                            <div class="modal-header"><h5 class="modal-title">Delete drive?</h5>
+                              <button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+                            <div class="modal-body text-start">
+                              Delete <strong>{{ d.title }}</strong> ({{ d.company.name }})? Linked quizzes
+                              stay but get unlinked from this drive. This cannot be undone.
+                            </div>
+                            <div class="modal-footer">
+                              <button class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+                              <form method="post" action="{% url 'teacher_delete_drive' d.id %}">
+                                {% csrf_token %}<button class="btn btn-danger">Delete</button>
+                              </form>
+                            </div>
+                          </div></div>
+                        </div>
                         {% else %}<span class="text-muted small">View only</span>{% endif %}
                     </td>
                 </tr>

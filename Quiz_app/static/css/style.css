@@ -1865,7 +1865,16 @@ h6 {
     border-radius: var(--radius-lg);
     box-shadow: var(--shadow-sm);
     height: 100%;
-    transition: transform var(--transition), box-shadow var(--transition);
+    text-decoration: none;
+    color: inherit;
+    transition: transform var(--transition), box-shadow var(--transition), border-color var(--transition);
+}
+
+a.tstat:hover {
+    transform: translateY(-3px);
+    border-color: var(--primary);
+    box-shadow: var(--shadow-md, 0 14px 30px rgba(16, 24, 40, 0.10));
+    color: inherit;
 }
 
 .tstat:hover {
@@ -2259,10 +2268,80 @@ h6 {
 }
 
 /* Links in dark mode */
-:root.dark-mode a:not(.btn):not(.nav-link):not(.navbar-brand) {
+:root.dark-mode a:not(.btn):not(.nav-link):not(.navbar-brand):not(.tstat):not(.tquick) {
     color: #93b4f8;
 }
+
+:root.dark-mode a.tstat { color: inherit; }
 
 :root.dark-mode .auth-link a {
     color: #93b4f8;
 }
+
+
+/* ═══ Quiz question palette ═══ */
+.palette-grid {
+    display: grid;
+    grid-template-columns: repeat(6, 1fr);
+    gap: 0.4rem;
+}
+
+.palette-btn {
+    aspect-ratio: 1 / 1;
+    display: grid;
+    place-items: center;
+    border-radius: 8px;
+    border: 1px solid var(--line);
+    font-weight: 800;
+    font-size: 0.85rem;
+    cursor: pointer;
+    padding: 0;
+    transition: transform var(--transition), box-shadow var(--transition);
+}
+
+.palette-btn:hover { transform: translateY(-1px); box-shadow: var(--shadow-sm); }
+
+.palette-btn.qp-answered {
+    background: var(--success);
+    color: #fff;
+    border-color: var(--success);
+}
+
+.palette-btn.qp-current {
+    background: var(--warning);
+    color: #1f2937;
+    border-color: var(--warning);
+    box-shadow: 0 0 0 3px rgba(251, 191, 36, 0.25);
+}
+
+.palette-btn.qp-unanswered {
+    background: var(--surface);
+    color: var(--muted);
+}
+
+:root.dark-mode .palette-btn.qp-unanswered {
+    background: #16233a;
+    color: #94a3b8;
+    border-color: #2b3a52;
+}
+
+.palette-legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+    font-size: 0.75rem;
+    color: var(--muted);
+}
+
+.palette-legend .dot {
+    display: inline-block;
+    width: 12px;
+    height: 12px;
+    border-radius: 3px;
+    margin-right: 0.25rem;
+    vertical-align: -1px;
+}
+
+.palette-legend .dot.qp-answered { background: var(--success); }
+.palette-legend .dot.qp-current { background: var(--warning); }
+.palette-legend .dot.qp-unanswered { background: var(--line); }

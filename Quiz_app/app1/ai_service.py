@@ -29,6 +29,53 @@ _COMPANY_PATTERNS = {
 }
 
 
+def _gemini_chat(prompt: str) -> str | None:
+    """Call Google Gemini (AI Studio) API. Uses GEMINI_API_KEY from settings/env."""
+    api_key = getattr(settings, "GEMINI_API_KEY", "") or ""
+    if not api_key:
+        return None
+
+    model = getattr(settings, "GEMINI_MODEL", "gemini-2.0-flash")
+    url = f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent?key={api_key}"
+
+    payload = {
+        "contents": [
+            {
+                "parts": [
+                    {
+                        "text": (
+                            "You are a senior placement trainer who creates original MCQs for Indian IT "
+                            "campus drives (TCS, Infosys, Wipro, etc.). Questions must be clear, unambiguous, "
+                            "with one clearly correct option and three plausible distractors. "
+                            "Return valid JSON only — no markdown fences, no explanation outside JSON.\n\n"
+                            + prompt
+                        )
+                    }
+                ]
+            }
+        ],
+        "generationConfig": {
+            "temperature": 0.7,
+            "maxOutputTokens": 4096,
+        },
+    }
+    req = urllib.request.Request(
+        url,
+        data=json.dumps(payload).encode("utf-8"),
+        headers={"Content-Type": "application/json"},
+        method="POST",
+    )
+    try:
+        with urllib.request.urlopen(req, timeout=90) as resp:
+            data = json.loads(resp.read().decode("utf-8"))
+        # Gemini response: candidates[0].content.parts[0].text
+        text = data["candidates"][0]["content"]["parts"][0]["text"]
+        return text
+    except (urllib.error.URLError, KeyError, json.JSONDecodeError, IndexError) as exc:
+        logger.warning("Gemini request failed: %s", exc)
+        return None
+
+
 def _openai_chat(prompt: str) -> str | None:
     api_key = getattr(settings, "OPENAI_API_KEY", "") or ""
     if not api_key:
@@ -347,7 +394,8 @@ Return JSON array:
   }}
 ]
 """
-    raw = _openai_chat(prompt)
+    # Try Gemini (Google AI Studio) first, then OpenAI as fallback.
+    raw = _gemini_chat(prompt) or _openai_chat(prompt)
     if raw:
         try:
             items = _parse_json_array(raw)

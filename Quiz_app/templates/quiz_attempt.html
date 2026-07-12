@@ -3,49 +3,92 @@
 {% block title %}{{ quiz.title }} | PlacementIQ{% endblock %}
 
 {% block content %}
-<div class="mx-auto fade-in-up" style="max-width:720px;">
-    <!-- Top bar -->
-    <div class="d-flex justify-content-between align-items-center mb-2">
-        <span class="small" style="color:var(--muted);"><i class="bi bi-journal-check me-1"></i>{{ quiz.title }}</span>
-        <span class="badge" style="background:var(--primary-soft);color:var(--primary-dark);font-size:0.8rem;">{{ question_number }} / {{ total_questions }}</span>
+<div class="row g-4 fade-in-up">
+    <!-- Main question column (below palette on mobile, left on desktop) -->
+    <div class="col-lg-8 order-2 order-lg-1">
+        <!-- Top bar -->
+        <div class="d-flex justify-content-between align-items-center mb-2">
+            <span class="small" style="color:var(--muted);"><i class="bi bi-journal-check me-1"></i>{{ quiz.title }}</span>
+            <span class="badge" style="background:var(--primary-soft);color:var(--primary-dark);font-size:0.8rem;">Question {{ question_number }} of {{ total_questions }}</span>
+        </div>
+
+        <!-- Progress -->
+        <div class="progress mb-3" style="height:6px;border-radius:3px;">
+            <div class="progress-bar" role="progressbar"
+                 style="width: {% widthratio question_number total_questions 100 %}%; background:linear-gradient(90deg,var(--primary),var(--accent));"></div>
+        </div>
+
+        {% if uses_test_timer %}
+        <!-- Test Timer -->
+        <div class="quiz-timer mb-3" id="timer-display" role="status" data-seconds="{{ seconds_remaining }}">
+            <i class="bi bi-stopwatch me-1"></i>Time left: <span id="timer-value">{{ seconds_remaining }}</span>s
+        </div>
+        {% endif %}
+
+        <form method="post" id="quiz-form" novalidate>
+            {% csrf_token %}
+            <input type="hidden" name="current_index" value="{{ question_index }}">
+
+            <!-- Question -->
+            <div class="soft-panel p-4 mb-3">
+                <p class="mb-0" style="font-size:1.05rem;font-weight:500;line-height:1.6;color:var(--ink);">{{ question.text }}</p>
+            </div>
+
+            <!-- Options -->
+            {% for option in options %}
+            <label class="quiz-option d-flex align-items-center gap-3" for="option{{ option.id }}">
+                <input class="form-check-input m-0 flex-shrink-0" type="radio" name="option" id="option{{ option.id }}"
+                       value="{{ option.id }}" style="width:18px;height:18px;"
+                       {% if option.id == selected_option_id %}checked{% endif %}>
+                <span style="font-size:0.92rem;">{{ option.text }}</span>
+            </label>
+            {% endfor %}
+
+            <!-- Navigation buttons -->
+            <div class="d-flex flex-wrap gap-2 mt-4">
+                <button type="submit" name="action" value="prev" class="btn btn-outline-secondary" formnovalidate
+                        {% if is_first_question %}disabled{% endif %}>
+                    <i class="bi bi-arrow-left me-1"></i>Previous
+                </button>
+
+                {% if not is_last_question %}
+                <button type="submit" name="action" value="next" class="btn btn-primary flex-grow-1">
+                    Save &amp; Next<i class="bi bi-arrow-right ms-1"></i>
+                </button>
+                {% endif %}
+
+                <button type="submit" name="action" value="submit" class="btn btn-success {% if is_last_question %}flex-grow-1{% endif %}" id="submit-test-btn">
+                    <i class="bi bi-flag me-1"></i>Submit Test
+                </button>
+            </div>
+        </form>
     </div>
 
-    <!-- Progress -->
-    <div class="progress mb-3" style="height:6px;border-radius:3px;">
-        <div class="progress-bar" role="progressbar"
-             style="width: {% widthratio question_number total_questions 100 %}%; background:linear-gradient(90deg,var(--primary),var(--accent));"
-             aria-valuenow="{{ question_number }}" aria-valuemin="0" aria-valuemax="{{ total_questions }}"></div>
+    <!-- Question palette (top on mobile, right on desktop) -->
+    <div class="col-lg-4 order-1 order-lg-2">
+        <div class="tpanel">
+            <div class="tpanel-head"><span><i class="bi bi-grid-3x3-gap me-1"></i>Questions</span>
+                <span class="tchip">{{ answered_count }}/{{ total_questions }}</span>
+            </div>
+            <div class="tpanel-body">
+                <div class="palette-grid">
+                    {% for p in palette %}
+                    <button type="submit" form="quiz-form" name="goto" value="{{ p.index }}" formnovalidate
+                            class="palette-btn {% if p.current %}qp-current{% elif p.answered %}qp-answered{% else %}qp-unanswered{% endif %}"
+                            title="Question {{ p.num }}">{{ p.num }}</button>
+                    {% endfor %}
+                </div>
+                <div class="palette-legend mt-3">
+                    <span><i class="dot qp-answered"></i> Answered</span>
+                    <span><i class="dot qp-current"></i> Current</span>
+                    <span><i class="dot qp-unanswered"></i> Not answered</span>
+                </div>
+                <p class="small mt-3 mb-0" style="color:var(--muted);">
+                    <i class="bi bi-info-circle me-1"></i>You can revisit and change answers anytime before submitting.
+                </p>
+            </div>
+        </div>
     </div>
-
-    <!-- Timer -->
-    <div class="quiz-timer mb-4" id="timer-display" role="status" data-seconds="{{ seconds_remaining }}">
-        <i class="bi bi-stopwatch me-1"></i>
-        {% if uses_test_timer %}Test time{% else %}Question time{% endif %}: <span id="timer-value">{{ seconds_remaining }}</span>s
-    </div>
-
-    <!-- Question -->
-    <div class="soft-panel p-4 mb-4">
-        <p class="mb-0" style="font-size:1.05rem;font-weight:500;line-height:1.6;color:var(--ink);">{{ question.text }}</p>
-    </div>
-
-    <!-- Options -->
-    <form method="post" id="quiz-form" novalidate>
-        {% csrf_token %}
-        {% for option in options %}
-        <label class="quiz-option d-flex align-items-center gap-3" for="option{{ option.id }}">
-            <input class="form-check-input m-0 flex-shrink-0" type="radio" name="option" id="option{{ option.id }}" value="{{ option.id }}" style="width:18px;height:18px;">
-            <span style="font-size:0.92rem;">{{ option.text }}</span>
-        </label>
-        {% endfor %}
-
-        <button type="submit" class="btn btn-primary btn-lg w-100 mt-3" id="submit-btn">
-            {% if is_last_question %}
-                <i class="bi bi-check-circle me-1"></i>Finish Quiz
-            {% else %}
-                Next Question<i class="bi bi-arrow-right ms-2"></i>
-            {% endif %}
-        </button>
-    </form>
 </div>
 {% endblock %}
 

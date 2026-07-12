@@ -17,7 +17,7 @@ from django.contrib.auth.models import User
 from django.contrib.messages.middleware import MessageMiddleware
 from django.contrib.messages.storage.fallback import FallbackStorage
 from django.contrib.sessions.middleware import SessionMiddleware
-from django.test import Client, RequestFactory, TestCase
+from django.test import Client, RequestFactory, TestCase, override_settings
 
 from app1 import supabase_auth as sa
 from app1 import supabase_client as sb
@@ -291,6 +291,133 @@ class ScoreCalculationTests(TestCase):
 
 
 # ─────────────────────────────────────────────────────────────────────────────
+# Quiz navigation flow (Previous/Next/Jump, partial submit, browser-back)
+# ─────────────────────────────────────────────────────────────────────────────
+class QuizFlowTests(TestCase):
+    def setUp(self):
+        self.client = Client()
+        self.user = User.objects.create_user("qflow", "qflow@ex.com", "Str0ngPass!42")
+        self.cat = Category.objects.create(name="Apt")
+        self.quiz = Quiz.objects.create(title="FlowQuiz", category=self.cat, status="active",
+                                        marks_per_question=Decimal("1"), negative_marks=Decimal("0"),
+                                        target_question_count=3)
+        self.qs = []
+        for n in range(3):
+            q = Question.objects.create(quiz=self.quiz, text=f"Question {n}")
+            Option.objects.create(question=q, text="right", is_correct=True)
+            Option.objects.create(question=q, text="wrong", is_correct=False)
+            self.qs.append(q)
+        self.client.force_login(self.user)
+
+    def test_attempt_without_session_redirects_to_dashboard(self):
+        # No Start Quiz → no session → must redirect, NOT auto-start.
+        resp = self.client.get(f"/quiz/attempt/{self.quiz.id}/")
+        self.assertEqual(resp.status_code, 302)
+        self.assertIn("/student/dashboard/", resp.url)
+
+    def test_start_then_navigate_next_and_prev(self):
+        self.client.get(f"/quiz/{self.quiz.id}/start/")
+        # On question 1
+        r1 = self.client.get(f"/quiz/attempt/{self.quiz.id}/")
+        self.assertEqual(r1.status_code, 200)
+        self.assertIn(b"Question 1 of 3", r1.content)
+        # Answer the question actually at index 0, then go next
+        first_qid = self.client.session["question_ids"][0]
+        opt = Question.objects.get(pk=first_qid).options.first()
+        self.client.post(f"/quiz/attempt/{self.quiz.id}/",
+                         {"action": "next", "current_index": "0", "option": opt.id})
+        r2 = self.client.get(f"/quiz/attempt/{self.quiz.id}/")
+        self.assertIn(b"Question 2 of 3", r2.content)
+        # Go back
+        self.client.post(f"/quiz/attempt/{self.quiz.id}/", {"action": "prev", "current_index": "1"})
+        r3 = self.client.get(f"/quiz/attempt/{self.quiz.id}/")
+        self.assertIn(b"Question 1 of 3", r3.content)
+        # Previously selected option is pre-checked (answer saved in session)
+        self.assertEqual(self.client.session["answers"].get(str(first_qid)), opt.id)
+        self.assertIn(b"checked", r3.content)
+
+    def test_jump_to_question(self):
+        self.client.get(f"/quiz/{self.quiz.id}/start/")
+        self.client.post(f"/quiz/attempt/{self.quiz.id}/", {"goto": "2", "current_index": "0"})
+        r = self.client.get(f"/quiz/attempt/{self.quiz.id}/")
+        self.assertIn(b"Question 3 of 3", r.content)
+
+    def test_partial_submit_allowed(self):
+        self.client.get(f"/quiz/{self.quiz.id}/start/")
+        # Questions are shuffled — answer the question actually at index 0.
+        session = self.client.session
+        first_qid = session["question_ids"][0]
+        first_q = Question.objects.get(pk=first_qid)
+        opt = first_q.options.get(is_correct=True)
+        # Answer only 1 of 3, then submit
+        self.client.post(f"/quiz/attempt/{self.quiz.id}/",
+                         {"action": "submit", "current_index": "0", "option": opt.id})
+        # Confirmation shows counts
+        rc = self.client.get("/quiz/confirm/")
+        self.assertEqual(rc.status_code, 200)
+        # Final submit
+        rf = self.client.post("/quiz/finalize/")
+        self.assertEqual(rf.status_code, 302)
+        attempt = Attempt.objects.get(user=self.user, quiz=self.quiz)
+        self.assertEqual(attempt.total, 3)
+        self.assertEqual(attempt.correct_count, 1)
+        # Skipped = total - correct - wrong = 3 - 1 - 0 = 2
+        self.assertEqual(attempt.total - attempt.correct_count - attempt.wrong_count, 2)
+
+    def test_no_reopen_after_submit(self):
+        self.client.get(f"/quiz/{self.quiz.id}/start/")
+        self.client.post("/quiz/finalize/")  # submit immediately (all skipped)
+        # Now session is cleared — attempting again redirects to dashboard
+        resp = self.client.get(f"/quiz/attempt/{self.quiz.id}/")
+        self.assertEqual(resp.status_code, 302)
+        self.assertIn("/student/dashboard/", resp.url)
+
+
+class CompanyTestCountTests(TestCase):
+    """Opening a company must never auto-create quizzes; only active,
+    non-archived quizzes with questions count."""
+
+    def setUp(self):
+        from app1.models import Company
+        self.client = Client()
+        self.student = User.objects.create_user("ctc", "ctc@ex.com", "Str0ngPass!42")
+        self.cat = Category.objects.create(name="Apt")
+        self.company = Company.objects.create(name="ZZCorp", is_active=True)
+
+    def test_opening_company_does_not_create_quiz(self):
+        from app1.models import Company
+        self.client.force_login(self.student)
+        before = Quiz.objects.count()
+        resp = self.client.get(f"/company/{self.company.id}/?section=aptitude&level=medium")
+        self.assertEqual(resp.status_code, 200)
+        self.assertEqual(Quiz.objects.count(), before)  # nothing created
+
+    def test_test_count_excludes_empty_hold_archived(self):
+        from django.db.models import Count, Q
+        from app1.models import Company
+        # Active quiz WITH a question → counts
+        q1 = Quiz.objects.create(title="Real", category=self.cat, company=self.company, status="active")
+        Question.objects.create(quiz=q1, text="Q")
+        # Active quiz with NO question → excluded
+        Quiz.objects.create(title="Empty", category=self.cat, company=self.company, status="active")
+        # Hold quiz with question → excluded
+        q3 = Quiz.objects.create(title="Hold", category=self.cat, company=self.company, status="hold")
+        Question.objects.create(quiz=q3, text="Q")
+        # Archived quiz with question → excluded
+        q4 = Quiz.objects.create(title="Arch", category=self.cat, company=self.company,
+                                 status="active", is_archived=True)
+        Question.objects.create(quiz=q4, text="Q")
+
+        c = (Company.objects.filter(pk=self.company.pk)
+             .annotate(test_count=Count(
+                 "tests",
+                 filter=Q(tests__status="active", tests__is_archived=False, tests__question__isnull=False),
+                 distinct=True))
+             .first())
+        self.assertEqual(c.test_count, 1)
+
+
+# ─────────────────────────────────────────────────────────────────────────────
 # Teacher Management System
 # ─────────────────────────────────────────────────────────────────────────────
 from django.contrib.auth.models import Group  # noqa: E402
@@ -492,6 +619,97 @@ class QuizOwnershipTests(TestCase):
         q.refresh_from_db()
         self.assertTrue(q.is_archived)
         self.assertEqual(q.status, "disabled")
+
+
+class TeacherDriveTests(TestCase):
+    def setUp(self):
+        self.client = Client()
+        self.t = _make_teacher()
+        self.company = Company.objects.create(name="DriveCo", created_by=self.t)
+        self.client.force_login(self.t)
+
+    def test_create_drive_shows_on_portal(self):
+        resp = self.client.post("/teacher/drives/add/", {
+            "company": self.company.id, "title": "Campus Drive 1",
+            "drive_date": "2027-01-15", "status": "upcoming",
+        })
+        self.assertEqual(resp.status_code, 302)
+        drive = PlacementDrive.objects.get(title="Campus Drive 1")
+        self.assertEqual(drive.created_by, self.t)
+        # Shows on the teacher drives list
+        page = self.client.get("/teacher/drives/")
+        self.assertIn(b"Campus Drive 1", page.content)
+
+    def test_teacher_can_delete_own_drive(self):
+        drive = PlacementDrive.objects.create(company=self.company, title="Del",
+                                              drive_date="2027-02-01", created_by=self.t)
+        resp = self.client.post(f"/teacher/drives/{drive.id}/delete/")
+        self.assertEqual(resp.status_code, 302)
+        self.assertFalse(PlacementDrive.objects.filter(pk=drive.pk).exists())
+
+    def test_delete_drive_requires_post(self):
+        drive = PlacementDrive.objects.create(company=self.company, title="Del2",
+                                              drive_date="2027-02-01", created_by=self.t)
+        self.assertEqual(self.client.get(f"/teacher/drives/{drive.id}/delete/").status_code, 405)
+
+    def test_other_teacher_cannot_delete_drive(self):
+        drive = PlacementDrive.objects.create(company=self.company, title="Del3",
+                                              drive_date="2027-02-01", created_by=self.t)
+        other = _make_teacher("t2", "E2")
+        self.client.force_login(other)
+        resp = self.client.post(f"/teacher/drives/{drive.id}/delete/")
+        self.assertEqual(resp.status_code, 403)
+        self.assertTrue(PlacementDrive.objects.filter(pk=drive.pk).exists())
+
+    def test_superadmin_can_manage_any_drive(self):
+        drive = PlacementDrive.objects.create(company=self.company, title="TeacherDrive",
+                                              drive_date="2027-02-01", created_by=self.t)
+        boss = _make_superadmin("bossd")
+        self.client.force_login(boss)
+        # Super admin can open the drives page and delete a teacher's drive.
+        self.assertEqual(self.client.get("/teacher/drives/").status_code, 200)
+        resp = self.client.post(f"/teacher/drives/{drive.id}/delete/")
+        self.assertEqual(resp.status_code, 302)
+        self.assertFalse(PlacementDrive.objects.filter(pk=drive.pk).exists())
+
+    def test_student_home_shows_placement_drive(self):
+        from datetime import date, timedelta
+        future = date.today() + timedelta(days=10)
+        PlacementDrive.objects.create(company=self.company, title="Visible Drive",
+                                      job_role="SDE", drive_date=future, status="upcoming",
+                                      created_by=self.t)
+        # company must be active to appear
+        self.company.is_active = True
+        self.company.save()
+        student = _make_student("shome")
+        c = Client()
+        c.force_login(student)
+        page = c.get("/")
+        self.assertIn(b"Visible Drive", page.content)
+
+
+class AiGenerateTests(TestCase):
+    def setUp(self):
+        self.client = Client()
+        self.t = _make_teacher()
+        self.cat = Category.objects.create(name="Apt")
+        self.company = Company.objects.create(name="AICo", created_by=self.t)
+        self.quiz = Quiz.objects.create(title="AIQ", category=self.cat, company=self.company,
+                                        section="aptitude", difficulty="medium", created_by=self.t)
+        self.client.force_login(self.t)
+
+    @override_settings(AI_ALLOW_FALLBACK=True, OPENAI_API_KEY="")
+    def test_fallback_adds_questions_when_enabled(self):
+        resp = self.client.post(f"/teacher/quizzes/{self.quiz.id}/ai-generate/", {"count": "5"})
+        self.assertEqual(resp.status_code, 302)
+        self.assertGreater(self.quiz.question_set.count(), 0)
+
+    @override_settings(AI_ALLOW_FALLBACK=False, OPENAI_API_KEY="")
+    def test_strict_mode_adds_nothing(self):
+        resp = self.client.post(f"/teacher/quizzes/{self.quiz.id}/ai-generate/", {"count": "5"})
+        self.assertEqual(resp.status_code, 302)
+        self.assertIn("ai-generate", resp.url)  # bounced back, not to questions
+        self.assertEqual(self.quiz.question_set.count(), 0)
 
 
 class TeacherManagementTests(TestCase):

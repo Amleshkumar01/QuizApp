@@ -1,5 +1,5 @@
 {% extends 'base.html' %}
-{% block title %}Submit Quiz | PlacementIQ{% endblock %}
+{% block title %}Submit Test | PlacementIQ{% endblock %}
 
 {% block content %}
 <div class="mx-auto text-center fade-in-up" style="max-width:480px;">
@@ -8,17 +8,47 @@
              style="width:72px;height:72px;border-radius:50%;background:var(--primary-soft);">
             <i class="bi bi-clipboard-check" style="font-size:1.8rem;color:var(--primary);"></i>
         </div>
-        <h3 class="fw-bold mb-2">Submit your answers?</h3>
-        <p class="mb-4" style="color:var(--muted);font-size:0.92rem;">Your responses are saved. Click submit to record your final score and see the results.</p>
-        <form method="post" action="{% url 'finalize_quiz' %}">
-            {% csrf_token %}
-            <div class="d-flex gap-2 justify-content-center">
-                <button type="submit" class="btn btn-primary">
-                    <i class="bi bi-check-lg me-1"></i>Submit
+        <h3 class="fw-bold mb-2">Submit Test?</h3>
+
+        <p class="mb-1" style="font-size:1rem;">
+            You have answered <strong style="color:var(--success);">{{ answered_count }}</strong>
+            out of <strong>{{ total_questions }}</strong> questions.
+        </p>
+        {% if unanswered_count %}
+        <p class="mb-3" style="color:var(--warning);font-weight:600;">
+            <i class="bi bi-exclamation-triangle me-1"></i>{{ unanswered_count }} question{{ unanswered_count|pluralize }} unanswered.
+        </p>
+        {% else %}
+        <p class="mb-3" style="color:var(--success);font-weight:600;">
+            <i class="bi bi-check-circle me-1"></i>All questions answered.
+        </p>
+        {% endif %}
+
+        <p class="mb-4 small" style="color:var(--muted);">Once submitted, you cannot change your answers.</p>
+
+        <div class="d-flex gap-2 justify-content-center flex-wrap">
+            <a href="{% url 'attempt_quiz' quiz.id %}" class="btn btn-outline-secondary">
+                <i class="bi bi-arrow-left me-1"></i>Continue Test
+            </a>
+            <form method="post" action="{% url 'finalize_quiz' %}" class="d-inline">
+                {% csrf_token %}
+                <button type="submit" class="btn btn-success" id="final-submit-btn">
+                    <i class="bi bi-check-lg me-1"></i>Final Submit
                 </button>
-                <a href="{% url 'home' %}" class="btn btn-outline-secondary">Cancel</a>
-            </div>
-        </form>
+            </form>
+        </div>
     </div>
 </div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// Prevent double submission
+document.getElementById('final-submit-btn')?.closest('form')?.addEventListener('submit', function(){
+    var b = document.getElementById('final-submit-btn');
+    if (b) { b.disabled = true; b.innerHTML = 'Submitting...'; }
+});
+// If restored from bfcache after submit, reload (session will be gone → redirect)
+window.addEventListener('pageshow', function(e){ if (e.persisted) location.reload(); });
+</script>
 {% endblock %}

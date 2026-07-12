@@ -10,43 +10,43 @@
     <a href="{% url 'teacher_add_quiz' %}" class="btn btn-primary btn-sm"><i class="bi bi-plus-lg me-1"></i>New Quiz</a>
 </div>
 
-<!-- Stat cards -->
+<!-- Stat cards (clickable) -->
 <div class="row g-3 mb-4">
     <div class="col-6 col-lg-4">
-        <div class="tstat">
+        <a href="{% url 'teacher_students' %}" class="tstat">
             <div class="tstat-icon blue"><i class="bi bi-people-fill"></i></div>
             <div><div class="tstat-value">{{ cards.total_students }}</div><div class="tstat-label">Total Students</div></div>
-        </div>
+        </a>
     </div>
     <div class="col-6 col-lg-4">
-        <div class="tstat">
+        <a href="{% url 'teacher_companies' %}" class="tstat">
             <div class="tstat-icon teal"><i class="bi bi-building"></i></div>
             <div><div class="tstat-value">{{ cards.active_companies }}</div><div class="tstat-label">Active Companies</div></div>
-        </div>
+        </a>
     </div>
     <div class="col-6 col-lg-4">
-        <div class="tstat">
+        <a href="{% url 'teacher_drives' %}" class="tstat">
             <div class="tstat-icon amber"><i class="bi bi-calendar-event"></i></div>
             <div><div class="tstat-value">{{ cards.upcoming_drives }}</div><div class="tstat-label">Upcoming Drives</div></div>
-        </div>
+        </a>
     </div>
     <div class="col-6 col-lg-4">
-        <div class="tstat">
+        <a href="{% url 'teacher_quizzes' %}" class="tstat">
             <div class="tstat-icon green"><i class="bi bi-journal-text"></i></div>
             <div><div class="tstat-value">{{ cards.managed_quizzes }}</div><div class="tstat-label">My Quizzes</div></div>
-        </div>
+        </a>
     </div>
     <div class="col-6 col-lg-4">
-        <div class="tstat">
+        <a href="{% url 'teacher_results' %}" class="tstat">
             <div class="tstat-icon violet"><i class="bi bi-pencil-square"></i></div>
             <div><div class="tstat-value">{{ cards.total_attempts }}</div><div class="tstat-label">Total Attempts</div></div>
-        </div>
+        </a>
     </div>
     <div class="col-6 col-lg-4">
-        <div class="tstat">
+        <a href="{% url 'teacher_analytics' %}" class="tstat">
             <div class="tstat-icon rose"><i class="bi bi-bullseye"></i></div>
             <div><div class="tstat-value">{{ cards.avg_score }}%</div><div class="tstat-label">Average Score</div></div>
-        </div>
+        </a>
     </div>
 </div>
 

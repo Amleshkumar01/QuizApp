@@ -154,12 +154,17 @@ def teacher_dashboard(request):
         avg_pct = round((agg["total_score"] or 0) / agg["total_total"] * 100, 1)
 
     today = timezone.now().date()
+    # "Upcoming" = any future-dated drive the teacher manages, except cancelled
+    # ones. This ensures a drive shows up as soon as it is created (even draft).
+    upcoming_drive_qs = (
+        _managed_drive_qs(user)
+        .filter(drive_date__gte=today)
+        .exclude(status="cancelled")
+    )
     cards = {
         "total_students": _students_qs().count(),
         "active_companies": Company.objects.filter(is_active=True).count(),
-        "upcoming_drives": _managed_drive_qs(user).filter(
-            status="upcoming", drive_date__gte=today
-        ).count(),
+        "upcoming_drives": upcoming_drive_qs.count(),
         "managed_quizzes": managed_quizzes.count(),
         "total_attempts": agg["n"] or 0,
         "avg_score": avg_pct,
@@ -170,10 +175,7 @@ def teacher_dashboard(request):
         attempts.select_related("user", "quiz").order_by("-completed_at")[:5]
     )
     upcoming = (
-        _managed_drive_qs(user)
-        .filter(drive_date__gte=today)
-        .select_related("company")
-        .order_by("drive_date")[:5]
+        upcoming_drive_qs.select_related("company").order_by("drive_date")[:5]
     )
     recent_imports = ImportBatch.objects.filter(uploaded_by=user).order_by("-created_at")[:5]
 
@@ -315,6 +317,24 @@ def teacher_edit_drive(request, drive_id):
         form = PlacementDriveForm(instance=drive)
     return render(request, "teacher/drive_form.html",
                   {"form": form, "mode": "edit", "drive": drive})
+
+
+@teacher_required
+@require_POST
+def teacher_delete_drive(request, drive_id):
+    drive = get_object_or_404(PlacementDrive, pk=drive_id)
+    if not can_manage_drive(request.user, drive):
+        return HttpResponseForbidden("You cannot manage this drive.")
+    # Quizzes may be linked to this drive; unlink them first (SET_NULL is on the
+    # FK, but be explicit and safe) so deleting a drive never removes quizzes.
+    Quiz.objects.filter(placement_drive=drive).update(placement_drive=None)
+    title = drive.title
+    pk = drive.pk
+    drive.delete()
+    log_action(request, "drive.delete", model_name="PlacementDrive", object_id=pk,
+               description=f"Deleted drive {title}")
+    messages.success(request, "Placement drive deleted.")
+    return redirect("teacher_drives")
 
 
 # ---------------------------------------------------------------------------
@@ -532,12 +552,31 @@ def teacher_ai_generate(request, quiz_id):
         count = max(1, min(count, 20))
         company_name = quiz.company.name if quiz.company else "Campus Placement"
         items, source = generate_questions(company_name, quiz.section, quiz.difficulty, count)
+
+        from django.conf import settings as dj_settings
+        allow_fallback = getattr(dj_settings, "AI_ALLOW_FALLBACK", False)
+
+        # Reject only when there is genuinely nothing to save, or when the AI
+        # failed AND fallback is disabled (strict mode).
+        if not items or (source != "ai" and not allow_fallback):
+            log_action(request, "question.ai_generate_failed", model_name="Quiz", object_id=quiz.pk,
+                       description="AI generation failed; no questions added")
+            messages.error(
+                request,
+                "AI question generation failed. No questions were added. "
+                "Set OPENAI_API_KEY (or AI_ALLOW_FALLBACK=true) in .env, try again, "
+                "or add questions manually.",
+            )
+            return redirect("teacher_ai_generate", quiz_id=quiz.pk)
+
         start_num = quiz.question_set.count() + 1
         core_views._save_ai_questions(quiz, items, start_number=start_num)
         log_action(request, "question.ai_generate", model_name="Quiz", object_id=quiz.pk,
-                   description=f"AI-generated {len(items)} questions ({source})")
-        label = "AI" if source == "ai" else "built-in question bank"
-        messages.success(request, f"Generated {len(items)} questions via {label}.")
+                   description=f"Generated {len(items)} questions (source={source})")
+        if source == "ai":
+            messages.success(request, f"Generated {len(items)} AI questions.")
+        else:
+            messages.success(request, f"Added {len(items)} questions from the built-in question bank.")
         return redirect("teacher_quiz_questions", quiz_id=quiz.pk)
     return render(request, "teacher/ai_generate.html", {"quiz": quiz})
 

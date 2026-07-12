@@ -21,8 +21,8 @@
 
 <div class="content-wrapper mb-4 fade-in-up fade-in-up-delay-1" style="background:var(--accent-soft);border-color:var(--accent);">
     <div class="d-flex align-items-center gap-2" style="font-size:0.88rem;color:var(--ink);">
-        <i class="bi bi-robot" style="font-size:1.1rem;color:var(--accent);"></i>
-        <span>Practice tests are auto-prepared for <strong>{{ default_section|title }}</strong> at <strong>{{ default_level|title }}</strong> level. Use filters below for other sections.</span>
+        <i class="bi bi-funnel" style="font-size:1.1rem;color:var(--accent);"></i>
+        <span>Showing available tests. Use the filters below to narrow by section and level.</span>
     </div>
 </div>
 
@@ -77,9 +77,9 @@
     {% empty %}
     <div class="col-12">
         <div class="empty-state">
-            <i class="bi bi-hourglass-split display-4 d-block mb-3" style="color:var(--muted);"></i>
-            <h5 class="fw-bold" style="color:var(--muted);">Preparing practice questions...</h5>
-            <p class="small mb-0" style="color:var(--muted);">Refresh in a moment to see tests for {{ company.name }}.</p>
+            <i class="bi bi-inbox display-4 d-block mb-3" style="color:var(--muted);"></i>
+            <h5 class="fw-bold" style="color:var(--muted);">No tests available</h5>
+            <p class="small mb-0" style="color:var(--muted);">There are no tests matching these filters for {{ company.name }} yet.</p>
         </div>
     </div>
     {% endfor %}

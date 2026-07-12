@@ -87,11 +87,11 @@
         </div>
         {% if upcoming_drives %}
         <div class="d-flex flex-column gap-2">
-            {% for test in upcoming_drives %}
-            <a href="{% url 'company_tests' test.company.id %}?section={{ test.section }}&level={{ test.difficulty }}" class="drive-card">
-                <span class="drive-date"><i class="bi bi-calendar3 me-1"></i>{{ test.drive_date|date:"d M Y" }}</span>
-                <h6 class="fw-bold mb-1" style="color:var(--ink);font-size:0.9rem;">{{ test.company.name }}</h6>
-                <div class="drive-meta">{{ test.get_section_display }} &middot; {{ test.get_difficulty_display }}</div>
+            {% for drive in upcoming_drives %}
+            <a href="{% url 'company_tests' drive.company.id %}" class="drive-card">
+                <span class="drive-date"><i class="bi bi-calendar3 me-1"></i>{{ drive.drive_date|date:"d M Y" }}</span>
+                <h6 class="fw-bold mb-1" style="color:var(--ink);font-size:0.9rem;">{{ drive.title }}</h6>
+                <div class="drive-meta">{{ drive.company.name }}{% if drive.job_role %} &middot; {{ drive.job_role }}{% endif %}</div>
             </a>
             {% endfor %}
         </div>
