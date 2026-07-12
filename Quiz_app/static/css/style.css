@@ -1975,3 +1975,67 @@ h6 {
     .teacher-nav { display: flex; flex-wrap: wrap; }
     .teacher-nav .nav-link { flex: 1 1 auto; }
 }
+
+
+/* Teacher panel tables + filters */
+.ttable { margin: 0; }
+
+.ttable thead th {
+    color: var(--muted);
+    font-size: 0.74rem;
+    font-weight: 800;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    border-bottom: 1px solid var(--line);
+    padding: 0.7rem 0.9rem;
+    background: transparent;
+}
+
+.ttable tbody td {
+    padding: 0.72rem 0.9rem;
+    vertical-align: middle;
+    border-bottom: 1px solid var(--soft-line);
+}
+
+.ttable tbody tr:last-child td { border-bottom: 0; }
+
+.ttable tbody tr { transition: background var(--transition); }
+.ttable tbody tr:hover { background: var(--primary-soft); }
+:root.dark-mode .ttable tbody tr:hover { background: #12213b; }
+
+.tfilter {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.6rem;
+    align-items: flex-end;
+    padding: 1rem 1.15rem;
+    border-bottom: 1px solid var(--soft-line);
+}
+
+.tfilter .form-label { font-size: 0.74rem; font-weight: 700; color: var(--muted); margin-bottom: .2rem; }
+
+.tempty {
+    padding: 2.5rem 1rem;
+    text-align: center;
+    color: var(--muted);
+}
+
+.tempty i { font-size: 2rem; display: block; margin-bottom: .5rem; opacity: .5; }
+
+/* status pills */
+.pill { font-size: .72rem; font-weight: 800; padding: .2rem .6rem; border-radius: 999px; }
+.pill-green { background: var(--success-soft, #dcfce7); color: #047857; }
+.pill-grey  { background: #eef1f7; color: #667085; }
+.pill-amber { background: var(--warning-soft, #fef3c7); color: #b45309; }
+.pill-blue  { background: var(--primary-soft); color: var(--primary); }
+.pill-red   { background: var(--danger-soft); color: #b91c1c; }
+:root.dark-mode .pill-grey { background: #1c2942; color: #9fb0c9; }
+
+.tsection-label {
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: .03em;
+    font-size: .78rem;
+    font-weight: 800;
+    margin-bottom: .5rem;
+}

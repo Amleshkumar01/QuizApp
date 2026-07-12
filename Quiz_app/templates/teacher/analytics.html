@@ -4,61 +4,62 @@
 <div class="page-header">
     <div><h2 class="fw-bold mb-1">Analytics</h2><p class="mb-0" style="color:var(--muted);">Performance across your managed quizzes.</p></div>
 </div>
+
 <div class="row g-3 mb-4">
-    <div class="col-6 col-md-3"><div class="admin-stat-card primary"><div class="small opacity-75">Students</div><div class="h3 mb-0">{{ cards.total_students }}</div></div></div>
-    <div class="col-6 col-md-3"><div class="admin-stat-card success"><div class="small opacity-75">Active</div><div class="h3 mb-0">{{ cards.active_students }}</div></div></div>
-    <div class="col-6 col-md-3"><div class="admin-stat-card info"><div class="small opacity-75">My Quizzes</div><div class="h3 mb-0">{{ cards.managed_quizzes }}</div></div></div>
-    <div class="col-6 col-md-3"><div class="admin-stat-card warning"><div class="small opacity-75">Attempts</div><div class="h3 mb-0">{{ cards.total_attempts }}</div></div></div>
-    <div class="col-6 col-md-3"><div class="admin-stat-card primary"><div class="small opacity-75">Imported</div><div class="h3 mb-0">{{ cards.imported_results }}</div></div></div>
-    <div class="col-6 col-md-3"><div class="admin-stat-card info"><div class="small opacity-75">Avg %</div><div class="h3 mb-0">{{ cards.avg_pct }}</div></div></div>
-    <div class="col-6 col-md-3"><div class="admin-stat-card success"><div class="small opacity-75">Pass %</div><div class="h3 mb-0">{{ cards.pass_pct }}</div></div></div>
-    <div class="col-6 col-md-3"><div class="admin-stat-card warning"><div class="small opacity-75">Avg Time (min)</div><div class="h3 mb-0">{{ cards.avg_time_min }}</div></div></div>
+    <div class="col-6 col-lg-3"><div class="tstat"><div class="tstat-icon blue"><i class="bi bi-people-fill"></i></div><div><div class="tstat-value">{{ cards.total_students }}</div><div class="tstat-label">Students</div></div></div></div>
+    <div class="col-6 col-lg-3"><div class="tstat"><div class="tstat-icon green"><i class="bi bi-person-check"></i></div><div><div class="tstat-value">{{ cards.active_students }}</div><div class="tstat-label">Active</div></div></div></div>
+    <div class="col-6 col-lg-3"><div class="tstat"><div class="tstat-icon teal"><i class="bi bi-journal-text"></i></div><div><div class="tstat-value">{{ cards.managed_quizzes }}</div><div class="tstat-label">My Quizzes</div></div></div></div>
+    <div class="col-6 col-lg-3"><div class="tstat"><div class="tstat-icon violet"><i class="bi bi-pencil-square"></i></div><div><div class="tstat-value">{{ cards.total_attempts }}</div><div class="tstat-label">Attempts</div></div></div></div>
+    <div class="col-6 col-lg-3"><div class="tstat"><div class="tstat-icon amber"><i class="bi bi-file-earmark-arrow-up"></i></div><div><div class="tstat-value">{{ cards.imported_results }}</div><div class="tstat-label">Imported</div></div></div></div>
+    <div class="col-6 col-lg-3"><div class="tstat"><div class="tstat-icon blue"><i class="bi bi-bullseye"></i></div><div><div class="tstat-value">{{ cards.avg_pct }}%</div><div class="tstat-label">Avg Score</div></div></div></div>
+    <div class="col-6 col-lg-3"><div class="tstat"><div class="tstat-icon green"><i class="bi bi-check2-circle"></i></div><div><div class="tstat-value">{{ cards.pass_pct }}%</div><div class="tstat-label">Pass Rate</div></div></div></div>
+    <div class="col-6 col-lg-3"><div class="tstat"><div class="tstat-icon rose"><i class="bi bi-stopwatch"></i></div><div><div class="tstat-value">{{ cards.avg_time_min }}</div><div class="tstat-label">Avg Time (min)</div></div></div></div>
 </div>
 
 <div class="row g-3">
-    <div class="col-lg-6"><div class="feature-card h-100">
-        <h6 class="fw-bold mb-3"><i class="bi bi-trophy me-1"></i>Top Performers</h6>
-        <table class="table table-sm"><tbody>
-        {% for t in top %}<tr><td>{{ t.user__first_name|default:t.user__username }} {{ t.user__last_name }}</td><td class="text-end">{{ t.avg|floatformat:1 }}</td></tr>
-        {% empty %}<tr><td class="text-muted">No data.</td></tr>{% endfor %}
-        </tbody></table>
+    <div class="col-lg-6"><div class="tpanel">
+        <div class="tpanel-head"><span><i class="bi bi-trophy me-1"></i>Top Performers</span></div>
+        <div class="table-responsive"><table class="table ttable"><tbody>
+        {% for t in top %}<tr><td>{{ t.user__first_name|default:t.user__username }} {{ t.user__last_name }}</td><td class="text-end fw-semibold">{{ t.avg|floatformat:1 }}</td></tr>
+        {% empty %}<tr><td class="text-muted p-3">No data.</td></tr>{% endfor %}
+        </tbody></table></div>
     </div></div>
-    <div class="col-lg-6"><div class="feature-card h-100">
-        <h6 class="fw-bold mb-3"><i class="bi bi-exclamation-triangle me-1"></i>Weak Performers</h6>
-        <table class="table table-sm"><tbody>
-        {% for t in weak %}<tr><td>{{ t.user__first_name|default:t.user__username }} {{ t.user__last_name }}</td><td class="text-end">{{ t.avg|floatformat:1 }}</td></tr>
-        {% empty %}<tr><td class="text-muted">No data.</td></tr>{% endfor %}
-        </tbody></table>
+    <div class="col-lg-6"><div class="tpanel">
+        <div class="tpanel-head"><span><i class="bi bi-exclamation-triangle me-1"></i>Weak Performers</span></div>
+        <div class="table-responsive"><table class="table ttable"><tbody>
+        {% for t in weak %}<tr><td>{{ t.user__first_name|default:t.user__username }} {{ t.user__last_name }}</td><td class="text-end fw-semibold">{{ t.avg|floatformat:1 }}</td></tr>
+        {% empty %}<tr><td class="text-muted p-3">No data.</td></tr>{% endfor %}
+        </tbody></table></div>
     </div></div>
-    <div class="col-lg-6"><div class="feature-card h-100">
-        <h6 class="fw-bold mb-3">Company-wise</h6>
-        <table class="table table-sm"><tbody>
-        {% for c in by_company %}<tr><td>{{ c.quiz__company__name|default:"—" }}</td><td class="text-end">{{ c.n }} att · {{ c.avg|floatformat:1 }}</td></tr>{% empty %}<tr><td class="text-muted">No data.</td></tr>{% endfor %}
-        </tbody></table>
+    <div class="col-lg-6"><div class="tpanel">
+        <div class="tpanel-head"><span><i class="bi bi-building me-1"></i>Company-wise</span></div>
+        <div class="table-responsive"><table class="table ttable"><tbody>
+        {% for c in by_company %}<tr><td>{{ c.quiz__company__name|default:"—" }}</td><td class="text-end">{{ c.n }} att · {{ c.avg|floatformat:1 }}</td></tr>{% empty %}<tr><td class="text-muted p-3">No data.</td></tr>{% endfor %}
+        </tbody></table></div>
     </div></div>
-    <div class="col-lg-6"><div class="feature-card h-100">
-        <h6 class="fw-bold mb-3">Section-wise</h6>
-        <table class="table table-sm"><tbody>
-        {% for s in by_section %}<tr><td>{{ s.quiz__section|default:"—" }}</td><td class="text-end">{{ s.n }} att · {{ s.avg|floatformat:1 }}</td></tr>{% empty %}<tr><td class="text-muted">No data.</td></tr>{% endfor %}
-        </tbody></table>
+    <div class="col-lg-6"><div class="tpanel">
+        <div class="tpanel-head"><span><i class="bi bi-grid me-1"></i>Section-wise</span></div>
+        <div class="table-responsive"><table class="table ttable"><tbody>
+        {% for s in by_section %}<tr><td class="text-capitalize">{{ s.quiz__section|default:"—" }}</td><td class="text-end">{{ s.n }} att · {{ s.avg|floatformat:1 }}</td></tr>{% empty %}<tr><td class="text-muted p-3">No data.</td></tr>{% endfor %}
+        </tbody></table></div>
     </div></div>
-    <div class="col-lg-6"><div class="feature-card h-100">
-        <h6 class="fw-bold mb-3">Branch-wise</h6>
-        <table class="table table-sm"><tbody>
-        {% for b in by_branch %}<tr><td>{{ b.user__student_profile__branch|default:"—" }}</td><td class="text-end">{{ b.n }} att · {{ b.avg|floatformat:1 }}</td></tr>{% empty %}<tr><td class="text-muted">No data.</td></tr>{% endfor %}
-        </tbody></table>
+    <div class="col-lg-6"><div class="tpanel">
+        <div class="tpanel-head"><span><i class="bi bi-diagram-3 me-1"></i>Branch-wise</span></div>
+        <div class="table-responsive"><table class="table ttable"><tbody>
+        {% for b in by_branch %}<tr><td>{{ b.user__student_profile__branch|default:"—" }}</td><td class="text-end">{{ b.n }} att · {{ b.avg|floatformat:1 }}</td></tr>{% empty %}<tr><td class="text-muted p-3">No data.</td></tr>{% endfor %}
+        </tbody></table></div>
     </div></div>
-    <div class="col-lg-6"><div class="feature-card h-100">
-        <h6 class="fw-bold mb-3">Batch-wise</h6>
-        <table class="table table-sm"><tbody>
-        {% for b in by_batch %}<tr><td>{{ b.user__student_profile__batch|default:"—" }}</td><td class="text-end">{{ b.n }} att · {{ b.avg|floatformat:1 }}</td></tr>{% empty %}<tr><td class="text-muted">No data.</td></tr>{% endfor %}
-        </tbody></table>
+    <div class="col-lg-6"><div class="tpanel">
+        <div class="tpanel-head"><span><i class="bi bi-people me-1"></i>Batch-wise</span></div>
+        <div class="table-responsive"><table class="table ttable"><tbody>
+        {% for b in by_batch %}<tr><td>{{ b.user__student_profile__batch|default:"—" }}</td><td class="text-end">{{ b.n }} att · {{ b.avg|floatformat:1 }}</td></tr>{% empty %}<tr><td class="text-muted p-3">No data.</td></tr>{% endfor %}
+        </tbody></table></div>
     </div></div>
-    <div class="col-12"><div class="feature-card">
-        <h6 class="fw-bold mb-3">Quiz-wise</h6>
-        <table class="table table-sm"><tbody>
-        {% for qz in by_quiz %}<tr><td>{{ qz.quiz__title }}</td><td class="text-end">{{ qz.n }} att · {{ qz.avg|floatformat:1 }}</td></tr>{% empty %}<tr><td class="text-muted">No data.</td></tr>{% endfor %}
-        </tbody></table>
+    <div class="col-12"><div class="tpanel">
+        <div class="tpanel-head"><span><i class="bi bi-journal-text me-1"></i>Quiz-wise</span></div>
+        <div class="table-responsive"><table class="table ttable"><tbody>
+        {% for qz in by_quiz %}<tr><td>{{ qz.quiz__title }}</td><td class="text-end">{{ qz.n }} att · {{ qz.avg|floatformat:1 }}</td></tr>{% empty %}<tr><td class="text-muted p-3">No data.</td></tr>{% endfor %}
+        </tbody></table></div>
     </div></div>
 </div>
 {% endblock %}

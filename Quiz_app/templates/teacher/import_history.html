@@ -2,30 +2,35 @@
 {% block teacher_title %}Import / Export{% endblock %}
 {% block teacher_content %}
 <div class="page-header">
-    <div><h2 class="fw-bold mb-1">Import / Export</h2><p class="mb-0" style="color:var(--muted);">Your recent import batches and export shortcuts.</p></div>
+    <div><h2 class="fw-bold mb-1">Import / Export</h2><p class="mb-0" style="color:var(--muted);">Data import batches and export shortcuts.</p></div>
 </div>
-<div class="row g-3 mb-3">
-    <div class="col-md-6"><div class="feature-card h-100">
-        <h6 class="fw-bold mb-2"><i class="bi bi-people me-1"></i>Students</h6>
-        <a href="{% url 'teacher_import_students' %}" class="btn btn-outline-primary btn-sm me-1"><i class="bi bi-upload me-1"></i>Import</a>
-        <a href="{% url 'teacher_export_students' %}" class="btn btn-outline-secondary btn-sm"><i class="bi bi-download me-1"></i>Export</a>
+<div class="row g-3 mb-4">
+    <div class="col-md-6"><div class="tpanel h-100">
+        <div class="tpanel-head"><span><i class="bi bi-people me-1"></i>Students</span></div>
+        <div class="tpanel-body">
+            <a href="{% url 'teacher_import_students' %}" class="btn btn-outline-primary btn-sm me-1"><i class="bi bi-upload me-1"></i>Import</a>
+            <a href="{% url 'teacher_export_students' %}" class="btn btn-outline-secondary btn-sm"><i class="bi bi-download me-1"></i>Export</a>
+        </div>
     </div></div>
-    <div class="col-md-6"><div class="feature-card h-100">
-        <h6 class="fw-bold mb-2"><i class="bi bi-clipboard-data me-1"></i>Results</h6>
-        <a href="{% url 'teacher_import_results' %}" class="btn btn-outline-primary btn-sm me-1"><i class="bi bi-upload me-1"></i>Import Offline</a>
-        <a href="{% url 'teacher_export_results' %}" class="btn btn-outline-secondary btn-sm"><i class="bi bi-download me-1"></i>Export</a>
+    <div class="col-md-6"><div class="tpanel h-100">
+        <div class="tpanel-head"><span><i class="bi bi-clipboard-data me-1"></i>Results</span></div>
+        <div class="tpanel-body">
+            <a href="{% url 'teacher_import_results' %}" class="btn btn-outline-primary btn-sm me-1"><i class="bi bi-upload me-1"></i>Import Offline</a>
+            <a href="{% url 'teacher_export_results' %}" class="btn btn-outline-secondary btn-sm"><i class="bi bi-download me-1"></i>Export</a>
+        </div>
     </div></div>
 </div>
-<div class="feature-card">
-    <h6 class="fw-bold mb-3">Import History</h6>
-    <div class="table-responsive"><table class="table table-sm align-middle">
+<div class="tpanel">
+    <div class="tpanel-head"><span><i class="bi bi-clock-history me-1"></i>Import History</span></div>
+    <div class="table-responsive"><table class="table ttable">
         <thead><tr><th>Type</th><th>File</th><th>Rows</th><th>OK</th><th>Failed</th><th>Status</th><th>When</th></tr></thead>
         <tbody>
         {% for b in batches %}
         <tr><td>{{ b.get_import_type_display }}</td><td>{{ b.filename|truncatechars:30 }}</td><td>{{ b.total_rows }}</td>
-            <td class="text-success">{{ b.successful_rows }}</td><td class="text-danger">{{ b.failed_rows }}</td>
-            <td><span class="badge bg-secondary">{{ b.get_status_display }}</span></td><td>{{ b.created_at|date:"Y-m-d H:i" }}</td></tr>
-        {% empty %}<tr><td colspan="7" class="text-center text-muted">No imports yet.</td></tr>{% endfor %}
+            <td class="text-success fw-semibold">{{ b.successful_rows }}</td><td class="text-danger fw-semibold">{{ b.failed_rows }}</td>
+            <td>{% if b.status == 'completed' %}<span class="pill pill-green">Completed</span>{% elif b.status == 'partial' %}<span class="pill pill-amber">Partial</span>{% elif b.status == 'failed' %}<span class="pill pill-red">Failed</span>{% else %}<span class="pill pill-grey">Pending</span>{% endif %}</td>
+            <td class="text-nowrap">{{ b.created_at|date:"Y-m-d H:i" }}</td></tr>
+        {% empty %}<tr><td colspan="7"><div class="tempty"><i class="bi bi-inbox"></i>No imports yet.</div></td></tr>{% endfor %}
         </tbody>
     </table></div>
 </div>

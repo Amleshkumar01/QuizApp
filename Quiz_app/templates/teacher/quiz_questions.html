@@ -3,31 +3,35 @@
 {% block teacher_content %}
 <div class="page-header">
     <div><h2 class="fw-bold mb-1">{{ quiz.title }}</h2><p class="mb-0" style="color:var(--muted);">Manage questions and options.</p></div>
-    <div class="d-flex gap-2">
+    <div class="d-flex gap-2 flex-wrap">
+        <a href="{% url 'teacher_quizzes' %}" class="btn btn-outline-secondary btn-sm"><i class="bi bi-arrow-left me-1"></i>Back</a>
         <a href="{% url 'teacher_add_question' quiz.id %}" class="btn btn-primary btn-sm"><i class="bi bi-plus-lg me-1"></i>Add Question</a>
         <a href="{% url 'teacher_ai_generate' quiz.id %}" class="btn btn-outline-primary btn-sm"><i class="bi bi-robot me-1"></i>AI Generate</a>
         <a href="{% url 'teacher_upload_csv' quiz.id %}" class="btn btn-outline-secondary btn-sm"><i class="bi bi-filetype-csv me-1"></i>CSV</a>
     </div>
 </div>
-<div class="feature-card">
+<div class="tpanel">
+    <div class="tpanel-head"><span><i class="bi bi-list-ol me-1"></i>Questions</span><span class="tchip">{{ questions|length }}</span></div>
+    <div class="tpanel-body">
     {% for question in questions %}
-    <div class="border-bottom py-3">
-        <div class="d-flex justify-content-between">
-            <div class="fw-semibold">{{ forloop.counter }}. {{ question.text }}</div>
+    <div class="trow flex-column align-items-stretch">
+        <div class="d-flex justify-content-between align-items-start w-100">
+            <div class="fw-semibold pe-2">{{ forloop.counter }}. {{ question.text }}</div>
             <div class="text-nowrap">
-                <a href="{% url 'teacher_edit_question' question.id %}" class="btn btn-outline-primary btn-sm"><i class="bi bi-pencil"></i></a>
+                <a href="{% url 'teacher_edit_question' question.id %}" class="btn btn-outline-primary btn-sm" title="Edit"><i class="bi bi-pencil"></i></a>
                 <form method="post" action="{% url 'teacher_delete_question' question.id %}" class="d-inline" onsubmit="return confirm('Delete this question?');">
                     {% csrf_token %}
-                    <button class="btn btn-outline-danger btn-sm"><i class="bi bi-trash"></i></button>
+                    <button class="btn btn-outline-danger btn-sm" title="Delete"><i class="bi bi-trash"></i></button>
                 </form>
             </div>
         </div>
         <ul class="mb-0 mt-2 small">
             {% for o in question.options.all %}
-            <li class="{% if o.is_correct %}text-success fw-semibold{% endif %}">{{ o.text }}{% if o.is_correct %} <i class="bi bi-check-circle"></i>{% endif %}</li>
+            <li class="{% if o.is_correct %}text-success fw-semibold{% endif %}">{{ o.text }}{% if o.is_correct %} <i class="bi bi-check-circle-fill"></i>{% endif %}</li>
             {% endfor %}
         </ul>
     </div>
-    {% empty %}<p class="text-muted mb-0">No questions yet. Add one or generate with AI.</p>{% endfor %}
+    {% empty %}<div class="tempty"><i class="bi bi-patch-question"></i>No questions yet. Add one or generate with AI.</div>{% endfor %}
+    </div>
 </div>
 {% endblock %}

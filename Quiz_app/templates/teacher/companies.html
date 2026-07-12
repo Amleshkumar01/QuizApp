@@ -5,19 +5,23 @@
     <div><h2 class="fw-bold mb-1">Companies</h2><p class="mb-0" style="color:var(--muted);">Create and manage placement companies.</p></div>
     <a href="{% url 'teacher_add_company' %}" class="btn btn-primary btn-sm"><i class="bi bi-plus-lg me-1"></i>Add Company</a>
 </div>
-<div class="feature-card">
+<div class="tpanel">
+    <div class="tpanel-head"><span><i class="bi bi-building me-1"></i>All Companies</span><span class="tchip">{{ companies|length }}</span></div>
     <div class="table-responsive">
-        <table class="table align-middle">
+        <table class="table ttable">
             <thead><tr><th>Name</th><th>Status</th><th>Tests</th><th class="text-end">Actions</th></tr></thead>
             <tbody>
             {% for c in companies %}
                 <tr>
-                    <td class="fw-semibold">{{ c.name }}</td>
-                    <td>{% if c.is_active %}<span class="badge bg-success">Active</span>{% else %}<span class="badge bg-secondary">Inactive</span>{% endif %}</td>
+                    <td class="fw-semibold">
+                        {% if c.logo %}<img src="{{ c.logo.url }}" alt="" style="height:26px;width:26px;object-fit:contain;" class="me-2">{% endif %}
+                        {{ c.name }}
+                    </td>
+                    <td>{% if c.is_active %}<span class="pill pill-green">Active</span>{% else %}<span class="pill pill-grey">Inactive</span>{% endif %}</td>
                     <td>{{ c.tests.count }}</td>
                     <td class="text-end">
                         {% if c.id in manageable_ids %}
-                        <a href="{% url 'teacher_edit_company' c.id %}" class="btn btn-outline-primary btn-sm"><i class="bi bi-pencil"></i></a>
+                        <a href="{% url 'teacher_edit_company' c.id %}" class="btn btn-outline-primary btn-sm" title="Edit"><i class="bi bi-pencil"></i></a>
                         <form method="post" action="{% url 'teacher_toggle_company' c.id %}" class="d-inline">
                             {% csrf_token %}
                             <button class="btn btn-outline-secondary btn-sm" title="Toggle active">
@@ -27,7 +31,7 @@
                         {% else %}<span class="text-muted small">View only</span>{% endif %}
                     </td>
                 </tr>
-            {% empty %}<tr><td colspan="4" class="text-center text-muted">No companies yet.</td></tr>{% endfor %}
+            {% empty %}<tr><td colspan="4"><div class="tempty"><i class="bi bi-building"></i>No companies yet.</div></td></tr>{% endfor %}
             </tbody>
         </table>
     </div>

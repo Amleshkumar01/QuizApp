@@ -9,35 +9,37 @@
     </div>
 </div>
 <div class="row g-3 mb-3">
-    <div class="col-md-4"><div class="admin-stat-card primary"><div class="small opacity-75">Attempts</div><div class="h3 mb-0">{{ total_attempts }}</div></div></div>
-    <div class="col-md-4"><div class="admin-stat-card info"><div class="small opacity-75">Avg Score</div><div class="h3 mb-0">{{ avg_score }}%</div></div></div>
-    <div class="col-md-4"><div class="admin-stat-card {% if profile.is_active|default_if_none:True %}success{% else %}warning{% endif %}"><div class="small opacity-75">Status</div><div class="h5 mb-0 mt-2">{% if profile.is_active|default_if_none:True %}Active{% else %}Inactive{% endif %}</div></div></div>
+    <div class="col-md-4"><div class="tstat"><div class="tstat-icon violet"><i class="bi bi-pencil-square"></i></div><div><div class="tstat-value">{{ total_attempts }}</div><div class="tstat-label">Attempts</div></div></div></div>
+    <div class="col-md-4"><div class="tstat"><div class="tstat-icon blue"><i class="bi bi-bullseye"></i></div><div><div class="tstat-value">{{ avg_score }}%</div><div class="tstat-label">Average Score</div></div></div></div>
+    <div class="col-md-4"><div class="tstat"><div class="tstat-icon {% if profile.is_active|default_if_none:True %}green{% else %}amber{% endif %}"><i class="bi bi-{% if profile.is_active|default_if_none:True %}person-check{% else %}person-dash{% endif %}"></i></div><div><div class="tstat-value" style="font-size:1.1rem;">{% if profile.is_active|default_if_none:True %}Active{% else %}Inactive{% endif %}</div><div class="tstat-label">Status</div></div></div></div>
 </div>
-<div class="feature-card mb-3">
-    <h6 class="fw-bold mb-3">Profile</h6>
-    <div class="row small">
-        <div class="col-md-4 mb-2"><span class="text-muted">Roll:</span> {{ profile.roll_number|default:"—" }}</div>
-        <div class="col-md-4 mb-2"><span class="text-muted">College:</span> {{ profile.college|default:"—" }}</div>
-        <div class="col-md-4 mb-2"><span class="text-muted">Branch:</span> {{ profile.branch|default:"—" }}</div>
-        <div class="col-md-4 mb-2"><span class="text-muted">Semester:</span> {{ profile.semester|default:"—" }}</div>
-        <div class="col-md-4 mb-2"><span class="text-muted">Batch:</span> {{ profile.batch|default:"—" }}</div>
-        <div class="col-md-4 mb-2"><span class="text-muted">Phone:</span> {{ profile.phone|default:"—" }}</div>
+<div class="tpanel mb-3">
+    <div class="tpanel-head"><span><i class="bi bi-person-vcard me-1"></i>Profile</span></div>
+    <div class="tpanel-body">
+        <div class="row small">
+            <div class="col-md-4 mb-2"><span class="text-muted">Roll:</span> {{ profile.roll_number|default:"—" }}</div>
+            <div class="col-md-4 mb-2"><span class="text-muted">College:</span> {{ profile.college|default:"—" }}</div>
+            <div class="col-md-4 mb-2"><span class="text-muted">Branch:</span> {{ profile.branch|default:"—" }}</div>
+            <div class="col-md-4 mb-2"><span class="text-muted">Semester:</span> {{ profile.semester|default:"—" }}</div>
+            <div class="col-md-4 mb-2"><span class="text-muted">Batch:</span> {{ profile.batch|default:"—" }}</div>
+            <div class="col-md-4 mb-2"><span class="text-muted">Phone:</span> {{ profile.phone|default:"—" }}</div>
+        </div>
     </div>
 </div>
-<div class="feature-card mb-3">
-    <h6 class="fw-bold mb-3">Online Attempts</h6>
-    <div class="table-responsive"><table class="table table-sm">
+<div class="tpanel mb-3">
+    <div class="tpanel-head"><span><i class="bi bi-clock-history me-1"></i>Online Attempts</span></div>
+    <div class="table-responsive"><table class="table ttable">
         <thead><tr><th>Quiz</th><th>Score</th><th>Marks</th><th>Date</th></tr></thead>
-        <tbody>{% for a in attempts %}<tr><td>{{ a.quiz.title }}</td><td>{{ a.score }}/{{ a.total }}</td><td>{{ a.marks_obtained }}</td><td>{{ a.completed_at|date:"Y-m-d" }}</td></tr>
-        {% empty %}<tr><td colspan="4" class="text-muted text-center">No attempts.</td></tr>{% endfor %}</tbody>
+        <tbody>{% for a in attempts %}<tr><td>{{ a.quiz.title }}</td><td class="fw-semibold">{{ a.score }}/{{ a.total }}</td><td>{{ a.marks_obtained }}</td><td class="text-nowrap">{{ a.completed_at|date:"Y-m-d" }}</td></tr>
+        {% empty %}<tr><td colspan="4"><div class="tempty"><i class="bi bi-clipboard"></i>No attempts.</div></td></tr>{% endfor %}</tbody>
     </table></div>
 </div>
-<div class="feature-card">
-    <h6 class="fw-bold mb-3">Offline / Imported Results</h6>
-    <div class="table-responsive"><table class="table table-sm">
+<div class="tpanel">
+    <div class="tpanel-head"><span><i class="bi bi-file-earmark-text me-1"></i>Offline / Imported Results</span></div>
+    <div class="table-responsive"><table class="table ttable">
         <thead><tr><th>Quiz</th><th>Score</th><th>%</th><th>Exam Date</th></tr></thead>
-        <tbody>{% for r in imported %}<tr><td>{{ r.quiz.title }}</td><td>{{ r.score }}/{{ r.total }}</td><td>{{ r.percentage }}%</td><td>{{ r.exam_date|date:"Y-m-d" }}</td></tr>
-        {% empty %}<tr><td colspan="4" class="text-muted text-center">No imported results.</td></tr>{% endfor %}</tbody>
+        <tbody>{% for r in imported %}<tr><td>{{ r.quiz.title }}</td><td class="fw-semibold">{{ r.score }}/{{ r.total }}</td><td>{{ r.percentage }}%</td><td class="text-nowrap">{{ r.exam_date|date:"Y-m-d" }}</td></tr>
+        {% empty %}<tr><td colspan="4"><div class="tempty"><i class="bi bi-file-earmark"></i>No imported results.</div></td></tr>{% endfor %}</tbody>
     </table></div>
 </div>
 {% endblock %}

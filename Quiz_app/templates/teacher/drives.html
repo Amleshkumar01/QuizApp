@@ -5,24 +5,30 @@
     <div><h2 class="fw-bold mb-1">Upcoming Drives</h2><p class="mb-0" style="color:var(--muted);">Placement drives linked to companies.</p></div>
     <a href="{% url 'teacher_add_drive' %}" class="btn btn-primary btn-sm"><i class="bi bi-plus-lg me-1"></i>Add Drive</a>
 </div>
-<div class="feature-card">
+<div class="tpanel">
+    <div class="tpanel-head"><span><i class="bi bi-calendar-event me-1"></i>All Drives</span><span class="tchip">{{ drives|length }}</span></div>
     <div class="table-responsive">
-        <table class="table align-middle">
+        <table class="table ttable">
             <thead><tr><th>Title</th><th>Company</th><th>Date</th><th>Status</th><th class="text-end">Actions</th></tr></thead>
             <tbody>
             {% for d in drives %}
                 <tr>
-                    <td class="fw-semibold">{{ d.title }}</td>
+                    <td class="fw-semibold">{{ d.title }}{% if d.job_role %}<div class="small text-muted">{{ d.job_role }}</div>{% endif %}</td>
                     <td>{{ d.company.name }}</td>
-                    <td>{{ d.drive_date }}</td>
-                    <td><span class="badge bg-secondary">{{ d.get_status_display }}</span></td>
+                    <td class="text-nowrap">{{ d.drive_date }}</td>
+                    <td>
+                        {% if d.status == 'upcoming' %}<span class="pill pill-blue">Upcoming</span>
+                        {% elif d.status == 'completed' %}<span class="pill pill-green">Completed</span>
+                        {% elif d.status == 'cancelled' %}<span class="pill pill-red">Cancelled</span>
+                        {% else %}<span class="pill pill-grey">Draft</span>{% endif %}
+                    </td>
                     <td class="text-end">
                         {% if d.id in manageable_ids %}
-                        <a href="{% url 'teacher_edit_drive' d.id %}" class="btn btn-outline-primary btn-sm"><i class="bi bi-pencil"></i></a>
+                        <a href="{% url 'teacher_edit_drive' d.id %}" class="btn btn-outline-primary btn-sm" title="Edit"><i class="bi bi-pencil"></i></a>
                         {% else %}<span class="text-muted small">View only</span>{% endif %}
                     </td>
                 </tr>
-            {% empty %}<tr><td colspan="5" class="text-center text-muted">No drives yet.</td></tr>{% endfor %}
+            {% empty %}<tr><td colspan="5"><div class="tempty"><i class="bi bi-calendar-x"></i>No drives yet.</div></td></tr>{% endfor %}
             </tbody>
         </table>
     </div>
