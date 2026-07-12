@@ -47,6 +47,10 @@ Ya agar IP pe chal raha hai:
 ```
 APP_BASE_URL=http://4.224.120.24
 ```
+Ya DNS se:
+```
+APP_BASE_URL=http://placementiq.centralindia.cloudapp.azure.com
+```
 
 ### 1.4 ALLOWED_HOSTS update karo
 
@@ -265,19 +269,19 @@ DJANGO_DEBUG=false
 DJANGO_SECRET_KEY=<generate-50-char-random-key>
 
 # === HOSTS ===
-ALLOWED_HOSTS=your-domain.com,4.224.120.24,127.0.0.1
-CSRF_TRUSTED_ORIGINS=https://your-domain.com,http://4.224.120.24
+ALLOWED_HOSTS=placementiq.centralindia.cloudapp.azure.com,4.224.120.24,127.0.0.1
+CSRF_TRUSTED_ORIGINS=http://placementiq.centralindia.cloudapp.azure.com,http://4.224.120.24
 
 # === DATABASE ===
 DATABASE_URL=postgresql://postgres.[your-ref]:[password]@aws-0-[region].pooler.supabase.com:6543/postgres
 
 # === APP ===
-APP_BASE_URL=https://your-domain.com
+APP_BASE_URL=http://placementiq.centralindia.cloudapp.azure.com
 
 # === SUPABASE AUTH ===
 SUPABASE_URL=https://[your-ref].supabase.co
-SUPABASE_ANON_KEY=eyJ...
-SUPABASE_SERVICE_ROLE_KEY=eyJ...
+SUPABASE_PUBLISHABLE_KEY=sb_publishable_...
+SUPABASE_SECRET_KEY=sb_secret_...
 
 # === OPTIONAL ===
 OPENAI_API_KEY=sk-...
