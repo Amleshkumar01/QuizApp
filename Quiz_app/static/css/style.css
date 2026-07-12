@@ -1768,10 +1768,8 @@ h6 {
 /* ═══════════════════════════════════════════════════════════════════════
    Teacher / Staff panel
    ═══════════════════════════════════════════════════════════════════════ */
-.teacher-layout {
-    gap: 1.5rem;
-}
-
+/* NOTE: never put `gap` on a Bootstrap .row — it breaks the 12-col width math
+   and wraps the main column below the sidebar. Use column gutters instead. */
 .teacher-sidebar {
     position: sticky;
     top: 88px;
