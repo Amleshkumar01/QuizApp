@@ -12,6 +12,7 @@ https://docs.djangoproject.com/en/5.2/ref/settings/
 
 from pathlib import Path
 import os
+import sys
 from django.core.exceptions import ImproperlyConfigured
 
 # Load environment variables from .env file (dev convenience; in prod use real env vars).
@@ -50,7 +51,7 @@ ALLOWED_HOSTS = [
         "ALLOWED_HOSTS",
         os.environ.get(
             "DJANGO_ALLOWED_HOSTS",
-            "localhost,127.0.0.1,quizapp-s39c.onrender.com",
+            "localhost,127.0.0.1",
         ),
     ).split(",")
     if h.strip()
@@ -73,7 +74,7 @@ CSRF_TRUSTED_ORIGINS = [
         "CSRF_TRUSTED_ORIGINS",
         os.environ.get(
             "DJANGO_CSRF_TRUSTED_ORIGINS",
-            "https://quizapp-s39c.onrender.com",
+            
         ),
     ).split(",")
     if o.strip()
@@ -106,8 +107,9 @@ DATA_UPLOAD_MAX_NUMBER_FIELDS = 1000
 SECURE_CONTENT_TYPE_NOSNIFF = True
 SECURE_REFERRER_POLICY = "same-origin"
 
-# Enable stronger transport security only when not debugging.
-if not DEBUG:
+# Enable stronger transport security only when not debugging (and never during
+# the test suite, where the client speaks plain HTTP).
+if not DEBUG and "test" not in sys.argv:
     # Behind a TLS-terminating reverse proxy (Render, Heroku, Nginx, etc.) Django
     # must trust the X-Forwarded-Proto header, otherwise request.is_secure() is
     # always False — breaking SSL redirect (loop) and secure-cookie enforcement.
@@ -163,6 +165,7 @@ TEMPLATES = [
                 'django.contrib.auth.context_processors.auth',
                 'django.contrib.messages.context_processors.messages',
                 'app1.context_processors.student_profile',
+                'app1.context_processors.role_flags',
             ],
         },
     },
@@ -190,7 +193,19 @@ WSGI_APPLICATION = 'Quiz_app.wsgi.application'
 # DATABASE_URL is read from the environment only and is never logged/printed.
 DATABASE_URL = os.environ.get("DATABASE_URL", "").strip()
 
-if DATABASE_URL:
+# Detect the test runner. The Supabase Session Pooler cannot create/drop a
+# throwaway test database, so tests always run against a fast in-memory SQLite
+# database. This never affects development or production (which never run `test`).
+_RUNNING_TESTS = "test" in sys.argv
+
+if _RUNNING_TESTS:
+    DATABASES = {
+        "default": {
+            "ENGINE": "django.db.backends.sqlite3",
+            "NAME": ":memory:",
+        }
+    }
+elif DATABASE_URL:
     import dj_database_url
 
     DATABASES = {

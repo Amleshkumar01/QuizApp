@@ -1,0 +1,16 @@
+{% extends 'teacher/base_teacher.html' %}
+{% block teacher_title %}{% if mode == 'edit' %}Edit{% else %}Add{% endif %} Company{% endblock %}
+{% block teacher_content %}
+<div class="page-header">
+    <div><h2 class="fw-bold mb-1">{% if mode == 'edit' %}Edit Company{% else %}Add Company{% endif %}</h2></div>
+    <a href="{% url 'teacher_companies' %}" class="btn btn-outline-secondary btn-sm"><i class="bi bi-arrow-left me-1"></i>Back</a>
+</div>
+<div class="feature-card">
+    <form method="post" enctype="multipart/form-data" novalidate>
+        {% csrf_token %}
+        {% include 'teacher/_form_fields.html' %}
+        {% if company.logo %}<div class="mb-3"><img src="{{ company.logo.url }}" alt="logo" style="height:48px;"></div>{% endif %}
+        <button type="submit" class="btn btn-primary"><i class="bi bi-check-lg me-1"></i>Save</button>
+    </form>
+</div>
+{% endblock %}

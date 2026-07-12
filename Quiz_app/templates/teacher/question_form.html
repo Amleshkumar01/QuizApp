@@ -1,0 +1,35 @@
+{% extends 'teacher/base_teacher.html' %}
+{% block teacher_title %}{% if question %}Edit{% else %}Add{% endif %} Question{% endblock %}
+{% block teacher_content %}
+<div class="page-header">
+    <div><h2 class="fw-bold mb-1">{% if question %}Edit{% else %}Add{% endif %} Question</h2><p class="mb-0" style="color:var(--muted);">{{ quiz.title }}</p></div>
+    <a href="{% url 'teacher_quiz_questions' quiz.id %}" class="btn btn-outline-secondary btn-sm"><i class="bi bi-arrow-left me-1"></i>Back</a>
+</div>
+<div class="feature-card">
+    <form method="post">
+        {% csrf_token %}
+        <div class="mb-3">
+            <label class="form-label fw-semibold">Question</label>
+            <textarea name="text" class="form-control" rows="3" required>{{ question.text|default:'' }}</textarea>
+        </div>
+        <div class="row g-3 mb-3">
+            <div class="col-md-6"><label class="form-label">Topic</label>
+                <input type="text" name="topic" class="form-control" value="{{ question.topic|default:'' }}" placeholder="e.g. Percentages"></div>
+            <div class="col-md-6"><label class="form-label">Explanation</label>
+                <input type="text" name="explanation" class="form-control" value="{{ question.explanation|default:'' }}"></div>
+        </div>
+        <label class="form-label fw-semibold">Answer options</label>
+        <p class="text-muted small">Fill at least 2 options and mark the correct one.</p>
+        {% for slot in option_slots %}
+        <div class="mb-3"><div class="input-group">
+            <span class="input-group-text">
+                <input type="radio" name="correct_option" value="{{ slot.slot }}" {% if slot.is_correct %}checked{% endif %} required>
+            </span>
+            {% if slot.id %}<input type="hidden" name="option_{{ slot.slot }}_id" value="{{ slot.id }}">{% endif %}
+            <input type="text" name="option_{{ slot.slot }}" class="form-control" value="{{ slot.text }}" placeholder="Option {{ slot.slot }}" {% if not question and slot.slot <= 2 %}required{% endif %}>
+        </div></div>
+        {% endfor %}
+        <button type="submit" class="btn btn-primary mt-2"><i class="bi bi-check-lg me-1"></i>{% if question %}Update{% else %}Add{% endif %}</button>
+    </form>
+</div>
+{% endblock %}

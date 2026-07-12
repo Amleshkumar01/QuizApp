@@ -1,0 +1,44 @@
+{% extends 'teacher/base_teacher.html' %}
+{% block teacher_title %}Results{% endblock %}
+{% block teacher_content %}
+<div class="page-header">
+    <div><h2 class="fw-bold mb-1">Results</h2><p class="mb-0" style="color:var(--muted);">Online attempts and imported offline results.</p></div>
+    <div class="d-flex gap-2">
+        <a href="{% url 'teacher_import_results' %}" class="btn btn-outline-primary btn-sm"><i class="bi bi-upload me-1"></i>Import Offline</a>
+        <a href="{% url 'teacher_export_results' %}?company={{ company_id }}&quiz={{ quiz_id }}&type={{ result_type }}" class="btn btn-outline-secondary btn-sm"><i class="bi bi-download me-1"></i>Export</a>
+    </div>
+</div>
+<div class="feature-card mb-3">
+    <form method="get" class="row g-2 align-items-end">
+        <div class="col-md-4"><label class="form-label small">Company</label>
+            <select name="company" class="form-select form-select-sm"><option value="">All</option>
+                {% for c in companies %}<option value="{{ c.id }}" {% if c.id|stringformat:'s' == company_id %}selected{% endif %}>{{ c.name }}</option>{% endfor %}</select></div>
+        <div class="col-md-4"><label class="form-label small">Quiz</label>
+            <select name="quiz" class="form-select form-select-sm"><option value="">All</option>
+                {% for qz in quizzes %}<option value="{{ qz.id }}" {% if qz.id|stringformat:'s' == quiz_id %}selected{% endif %}>{{ qz.title }}</option>{% endfor %}</select></div>
+        <div class="col-md-3"><label class="form-label small">Type</label>
+            <select name="type" class="form-select form-select-sm">
+                <option value="" {% if result_type == '' %}selected{% endif %}>All</option>
+                <option value="online" {% if result_type == 'online' %}selected{% endif %}>Online</option>
+                <option value="offline" {% if result_type == 'offline' %}selected{% endif %}>Offline</option></select></div>
+        <div class="col-md-1"><button class="btn btn-primary btn-sm w-100">Go</button></div>
+    </form>
+</div>
+
+<div class="feature-card">
+    <div class="table-responsive">
+        <table class="table table-sm align-middle">
+            <thead><tr><th>Type</th><th>Student</th><th>Quiz</th><th>Score</th><th>Date</th></tr></thead>
+            <tbody>
+            {% for a in attempts %}
+                <tr><td><span class="badge bg-primary">Online</span></td><td>{{ a.user.username }}</td><td>{{ a.quiz.title }}</td><td>{{ a.score }}/{{ a.total }}</td><td>{{ a.completed_at|date:"Y-m-d" }}</td></tr>
+            {% endfor %}
+            {% for r in imported %}
+                <tr><td><span class="badge bg-info">Offline</span></td><td>{{ r.student.username }}</td><td>{{ r.quiz.title }}</td><td>{{ r.score }}/{{ r.total }}</td><td>{{ r.exam_date|date:"Y-m-d" }}</td></tr>
+            {% endfor %}
+            {% if not attempts and not imported %}<tr><td colspan="5" class="text-center text-muted">No results.</td></tr>{% endif %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

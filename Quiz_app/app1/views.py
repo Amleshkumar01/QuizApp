@@ -16,7 +16,17 @@ from django.contrib.auth.password_validation import validate_password
 from django.core.validators import validate_email
 from django.http import HttpResponseForbidden, HttpResponse
 
-from .decorators import admin_required, student_required
+from .decorators import admin_required, student_required, superadmin_required, teacher_required, staff_required
+from .permissions import (
+    is_super_admin,
+    is_teacher,
+    is_staff_member,
+    staff_role,
+    can_manage_company,
+    can_manage_drive,
+    can_manage_quiz,
+    can_delete_quiz,
+)
 from django.core.cache import cache
 from django.core.exceptions import ValidationError
 from django.db import IntegrityError, transaction
@@ -539,11 +549,21 @@ def django_admin_blocked(request):
     )
 
 
+def _staff_post_login_redirect(user):
+    """Route a staff user to the correct portal based on role."""
+    if is_super_admin(user):
+        return redirect("admin_dashboard")
+    if is_teacher(user):
+        return redirect("teacher_dashboard")
+    # Staff flag set but not a recognised role: treat as admin for safety.
+    return redirect("admin_dashboard")
+
+
 @require_http_methods(["GET", "POST"])
 def admin_login_view(request):
     if request.user.is_authenticated:
         if request.user.is_staff:
-            return redirect("admin_dashboard")
+            return _staff_post_login_redirect(request.user)
         messages.warning(request, "Student accounts must use the student login page.")
         return redirect("student_dashboard")
 
@@ -564,7 +584,7 @@ def admin_login_view(request):
             request.session.cycle_key()
             login(request, user)
             messages.success(request, f"Welcome, {username}!")
-            return redirect("admin_dashboard")
+            return _staff_post_login_redirect(user)
 
         _bump_login_throttle(request, username)
         if user is not None and not user.is_staff:

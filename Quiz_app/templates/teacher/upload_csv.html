@@ -1,0 +1,18 @@
+{% extends 'teacher/base_teacher.html' %}
+{% block teacher_title %}Upload Questions CSV{% endblock %}
+{% block teacher_content %}
+<div class="page-header">
+    <div><h2 class="fw-bold mb-1">Upload Questions CSV</h2><p class="mb-0" style="color:var(--muted);">{{ quiz.title }}</p></div>
+    <a href="{% url 'teacher_quiz_questions' quiz.id %}" class="btn btn-outline-secondary btn-sm"><i class="bi bi-arrow-left me-1"></i>Back</a>
+</div>
+<div class="feature-card">
+    <p class="small text-muted">Columns: <code>text, option_1, option_2, option_3, option_4, correct_option, explanation, topic</code>. <code>correct_option</code> is the 1-based index. Max 2MB / 2000 rows.</p>
+    <form method="post" enctype="multipart/form-data">
+        {% csrf_token %}
+        <div class="mb-3">
+            <input type="file" name="csv_file" accept=".csv" class="form-control" required>
+        </div>
+        <button type="submit" class="btn btn-primary"><i class="bi bi-upload me-1"></i>Upload</button>
+    </form>
+</div>
+{% endblock %}

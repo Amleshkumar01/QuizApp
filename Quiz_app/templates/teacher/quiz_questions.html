@@ -1,0 +1,33 @@
+{% extends 'teacher/base_teacher.html' %}
+{% block teacher_title %}Questions{% endblock %}
+{% block teacher_content %}
+<div class="page-header">
+    <div><h2 class="fw-bold mb-1">{{ quiz.title }}</h2><p class="mb-0" style="color:var(--muted);">Manage questions and options.</p></div>
+    <div class="d-flex gap-2">
+        <a href="{% url 'teacher_add_question' quiz.id %}" class="btn btn-primary btn-sm"><i class="bi bi-plus-lg me-1"></i>Add Question</a>
+        <a href="{% url 'teacher_ai_generate' quiz.id %}" class="btn btn-outline-primary btn-sm"><i class="bi bi-robot me-1"></i>AI Generate</a>
+        <a href="{% url 'teacher_upload_csv' quiz.id %}" class="btn btn-outline-secondary btn-sm"><i class="bi bi-filetype-csv me-1"></i>CSV</a>
+    </div>
+</div>
+<div class="feature-card">
+    {% for question in questions %}
+    <div class="border-bottom py-3">
+        <div class="d-flex justify-content-between">
+            <div class="fw-semibold">{{ forloop.counter }}. {{ question.text }}</div>
+            <div class="text-nowrap">
+                <a href="{% url 'teacher_edit_question' question.id %}" class="btn btn-outline-primary btn-sm"><i class="bi bi-pencil"></i></a>
+                <form method="post" action="{% url 'teacher_delete_question' question.id %}" class="d-inline" onsubmit="return confirm('Delete this question?');">
+                    {% csrf_token %}
+                    <button class="btn btn-outline-danger btn-sm"><i class="bi bi-trash"></i></button>
+                </form>
+            </div>
+        </div>
+        <ul class="mb-0 mt-2 small">
+            {% for o in question.options.all %}
+            <li class="{% if o.is_correct %}text-success fw-semibold{% endif %}">{{ o.text }}{% if o.is_correct %} <i class="bi bi-check-circle"></i>{% endif %}</li>
+            {% endfor %}
+        </ul>
+    </div>
+    {% empty %}<p class="text-muted mb-0">No questions yet. Add one or generate with AI.</p>{% endfor %}
+</div>
+{% endblock %}

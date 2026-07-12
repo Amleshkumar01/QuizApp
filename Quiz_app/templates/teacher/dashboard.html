@@ -1,0 +1,67 @@
+{% extends 'teacher/base_teacher.html' %}
+{% block teacher_title %}Dashboard{% endblock %}
+{% block teacher_content %}
+<div class="page-header">
+    <div>
+        <h2 class="fw-bold mb-1">Teacher Dashboard</h2>
+        <p class="mb-0" style="color:var(--muted);">Your companies, drives, quizzes and student results.</p>
+    </div>
+    <a href="{% url 'teacher_add_quiz' %}" class="btn btn-primary btn-sm"><i class="bi bi-plus-lg me-1"></i>New Quiz</a>
+</div>
+
+<div class="row g-3 mb-4">
+    <div class="col-6 col-md-4 col-lg-2"><div class="admin-stat-card primary"><div class="small opacity-75">Students</div><div class="h3 mb-0">{{ cards.total_students }}</div></div></div>
+    <div class="col-6 col-md-4 col-lg-2"><div class="admin-stat-card info"><div class="small opacity-75">Companies</div><div class="h3 mb-0">{{ cards.active_companies }}</div></div></div>
+    <div class="col-6 col-md-4 col-lg-2"><div class="admin-stat-card warning"><div class="small opacity-75">Upcoming Drives</div><div class="h3 mb-0">{{ cards.upcoming_drives }}</div></div></div>
+    <div class="col-6 col-md-4 col-lg-2"><div class="admin-stat-card success"><div class="small opacity-75">My Quizzes</div><div class="h3 mb-0">{{ cards.managed_quizzes }}</div></div></div>
+    <div class="col-6 col-md-4 col-lg-2"><div class="admin-stat-card primary"><div class="small opacity-75">Attempts</div><div class="h3 mb-0">{{ cards.total_attempts }}</div></div></div>
+    <div class="col-6 col-md-4 col-lg-2"><div class="admin-stat-card info"><div class="small opacity-75">Avg Score</div><div class="h3 mb-0">{{ cards.avg_score }}%</div></div></div>
+</div>
+
+<div class="row g-3">
+    <div class="col-lg-6">
+        <div class="feature-card h-100">
+            <h6 class="fw-bold mb-3"><i class="bi bi-journal-text me-1"></i>Recent Quizzes</h6>
+            {% for q in recent_quizzes %}
+            <div class="d-flex justify-content-between border-bottom py-2">
+                <a href="{% url 'teacher_quiz_questions' q.id %}">{{ q.title }}</a>
+                <span class="badge bg-secondary">{{ q.get_status_display }}</span>
+            </div>
+            {% empty %}<p class="text-muted mb-0">No quizzes yet.</p>{% endfor %}
+        </div>
+    </div>
+    <div class="col-lg-6">
+        <div class="feature-card h-100">
+            <h6 class="fw-bold mb-3"><i class="bi bi-calendar-event me-1"></i>Upcoming Drives</h6>
+            {% for d in upcoming_drives %}
+            <div class="d-flex justify-content-between border-bottom py-2">
+                <span>{{ d.title }} <small class="text-muted">— {{ d.company.name }}</small></span>
+                <span>{{ d.drive_date }}</span>
+            </div>
+            {% empty %}<p class="text-muted mb-0">No upcoming drives.</p>{% endfor %}
+        </div>
+    </div>
+    <div class="col-lg-6">
+        <div class="feature-card h-100">
+            <h6 class="fw-bold mb-3"><i class="bi bi-clock-history me-1"></i>Recent Attempts</h6>
+            {% for a in recent_attempts %}
+            <div class="d-flex justify-content-between border-bottom py-2">
+                <span>{{ a.user.username }} — {{ a.quiz.title|truncatechars:30 }}</span>
+                <span>{{ a.score }}/{{ a.total }}</span>
+            </div>
+            {% empty %}<p class="text-muted mb-0">No attempts yet.</p>{% endfor %}
+        </div>
+    </div>
+    <div class="col-lg-6">
+        <div class="feature-card h-100">
+            <h6 class="fw-bold mb-3"><i class="bi bi-arrow-down-up me-1"></i>Recent Imports</h6>
+            {% for b in recent_imports %}
+            <div class="d-flex justify-content-between border-bottom py-2">
+                <span>{{ b.get_import_type_display }} — {{ b.filename|truncatechars:24 }}</span>
+                <span class="badge bg-secondary">{{ b.get_status_display }}</span>
+            </div>
+            {% empty %}<p class="text-muted mb-0">No imports yet.</p>{% endfor %}
+        </div>
+    </div>
+</div>
+{% endblock %}

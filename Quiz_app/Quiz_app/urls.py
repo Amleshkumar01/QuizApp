@@ -10,6 +10,8 @@ from django.urls import path
 
 from app1 import views
 from app1 import supabase_auth
+from app1 import teacher_views
+from app1 import admin_teacher_views
 
 urlpatterns = [
     # Custom admin portal — listed before path('admin/', ...) so routes are not swallowed.
@@ -50,6 +52,44 @@ urlpatterns = [
     path("admin/users/bulk-delete/", views.admin_bulk_delete_users, name="admin_bulk_delete_users"),
     path("admin/quizzes/bulk-status/", views.admin_bulk_quiz_status, name="admin_bulk_quiz_status"),
     path("admin/settings/", views.admin_site_settings, name="admin_site_settings"),
+
+    # Super Admin — Teacher management & audit logs
+    path("admin/teachers/", admin_teacher_views.admin_teachers, name="admin_teachers"),
+    path("admin/teachers/add/", admin_teacher_views.admin_add_teacher, name="admin_add_teacher"),
+    path("admin/teachers/<int:teacher_id>/edit/", admin_teacher_views.admin_edit_teacher, name="admin_edit_teacher"),
+    path("admin/teachers/<int:teacher_id>/deactivate/", admin_teacher_views.admin_deactivate_teacher, name="admin_deactivate_teacher"),
+    path("admin/teachers/<int:teacher_id>/reset-password/", admin_teacher_views.admin_reset_teacher_password, name="admin_reset_teacher_password"),
+    path("admin/audit-logs/", admin_teacher_views.admin_audit_logs, name="admin_audit_logs"),
+
+    # Teacher portal
+    path("teacher/dashboard/", teacher_views.teacher_dashboard, name="teacher_dashboard"),
+    path("teacher/companies/", teacher_views.teacher_companies, name="teacher_companies"),
+    path("teacher/companies/add/", teacher_views.teacher_add_company, name="teacher_add_company"),
+    path("teacher/companies/<int:company_id>/edit/", teacher_views.teacher_edit_company, name="teacher_edit_company"),
+    path("teacher/companies/<int:company_id>/toggle/", teacher_views.teacher_toggle_company, name="teacher_toggle_company"),
+    path("teacher/drives/", teacher_views.teacher_drives, name="teacher_drives"),
+    path("teacher/drives/add/", teacher_views.teacher_add_drive, name="teacher_add_drive"),
+    path("teacher/drives/<int:drive_id>/edit/", teacher_views.teacher_edit_drive, name="teacher_edit_drive"),
+    path("teacher/quizzes/", teacher_views.teacher_quizzes, name="teacher_quizzes"),
+    path("teacher/quizzes/add/", teacher_views.teacher_add_quiz, name="teacher_add_quiz"),
+    path("teacher/quizzes/<int:quiz_id>/edit/", teacher_views.teacher_edit_quiz, name="teacher_edit_quiz"),
+    path("teacher/quizzes/<int:quiz_id>/delete/", teacher_views.teacher_delete_quiz, name="teacher_delete_quiz"),
+    path("teacher/quizzes/<int:quiz_id>/questions/", teacher_views.teacher_quiz_questions, name="teacher_quiz_questions"),
+    path("teacher/quizzes/<int:quiz_id>/questions/add/", teacher_views.teacher_add_question, name="teacher_add_question"),
+    path("teacher/questions/<int:question_id>/edit/", teacher_views.teacher_edit_question, name="teacher_edit_question"),
+    path("teacher/questions/<int:question_id>/delete/", teacher_views.teacher_delete_question, name="teacher_delete_question"),
+    path("teacher/quizzes/<int:quiz_id>/upload-csv/", teacher_views.teacher_upload_csv, name="teacher_upload_csv"),
+    path("teacher/quizzes/<int:quiz_id>/ai-generate/", teacher_views.teacher_ai_generate, name="teacher_ai_generate"),
+    path("teacher/students/", teacher_views.teacher_students, name="teacher_students"),
+    path("teacher/students/import/", teacher_views.teacher_import_students, name="teacher_import_students"),
+    path("teacher/students/export/", teacher_views.teacher_export_students, name="teacher_export_students"),
+    path("teacher/students/<int:user_id>/", teacher_views.teacher_student_detail, name="teacher_student_detail"),
+    path("teacher/students/<int:user_id>/edit/", teacher_views.teacher_student_edit, name="teacher_student_edit"),
+    path("teacher/results/", teacher_views.teacher_results, name="teacher_results"),
+    path("teacher/results/import/", teacher_views.teacher_import_results, name="teacher_import_results"),
+    path("teacher/results/export/", teacher_views.teacher_export_results, name="teacher_export_results"),
+    path("teacher/analytics/", teacher_views.teacher_analytics, name="teacher_analytics"),
+    path("teacher/import-history/", teacher_views.teacher_import_history, name="teacher_import_history"),
 
     # Block default Django admin login at /admin/ (must be after all other /admin/... routes).
     path("admin/", views.django_admin_blocked, name="django_admin_blocked"),

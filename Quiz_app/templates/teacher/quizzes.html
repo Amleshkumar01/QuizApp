@@ -1,0 +1,49 @@
+{% extends 'teacher/base_teacher.html' %}
+{% block teacher_title %}My Quizzes{% endblock %}
+{% block teacher_content %}
+<div class="page-header">
+    <div><h2 class="fw-bold mb-1">My Quizzes</h2><p class="mb-0" style="color:var(--muted);">Quizzes you created or are assigned to.</p></div>
+    <a href="{% url 'teacher_add_quiz' %}" class="btn btn-primary btn-sm"><i class="bi bi-plus-lg me-1"></i>New Quiz</a>
+</div>
+<div class="feature-card">
+    <div class="table-responsive">
+        <table class="table align-middle">
+            <thead><tr><th>Title</th><th>Company</th><th>Questions</th><th>Attempts</th><th>Status</th><th class="text-end">Actions</th></tr></thead>
+            <tbody>
+            {% for q in quizzes %}
+                <tr>
+                    <td class="fw-semibold">{{ q.title }}{% if q.is_archived %} <span class="badge bg-warning text-dark">Archived</span>{% endif %}</td>
+                    <td>{{ q.company.name|default:"—" }}</td>
+                    <td>{{ q.qcount }}</td>
+                    <td>{{ q.attempt_count }}</td>
+                    <td><span class="badge bg-secondary">{{ q.get_status_display }}</span></td>
+                    <td class="text-end">
+                        <a href="{% url 'teacher_quiz_questions' q.id %}" class="btn btn-outline-secondary btn-sm" title="Questions"><i class="bi bi-list-ul"></i></a>
+                        <a href="{% url 'teacher_edit_quiz' q.id %}" class="btn btn-outline-primary btn-sm" title="Edit"><i class="bi bi-pencil"></i></a>
+                        <button type="button" class="btn btn-outline-danger btn-sm" title="Delete"
+                                data-bs-toggle="modal" data-bs-target="#del{{ q.id }}"><i class="bi bi-trash"></i></button>
+                        <div class="modal fade" id="del{{ q.id }}" tabindex="-1">
+                          <div class="modal-dialog"><div class="modal-content">
+                            <div class="modal-header"><h5 class="modal-title">Delete quiz?</h5>
+                              <button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+                            <div class="modal-body text-start">
+                              Deleting <strong>{{ q.title }}</strong>. If it has results it will be
+                              <strong>archived</strong> (results preserved) instead of permanently deleted.
+                            </div>
+                            <div class="modal-footer">
+                              <button class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                              <form method="post" action="{% url 'teacher_delete_quiz' q.id %}">
+                                {% csrf_token %}
+                                <button class="btn btn-danger">Delete</button>
+                              </form>
+                            </div>
+                          </div></div>
+                        </div>
+                    </td>
+                </tr>
+            {% empty %}<tr><td colspan="6" class="text-center text-muted">No quizzes yet.</td></tr>{% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

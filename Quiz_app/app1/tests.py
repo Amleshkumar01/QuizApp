@@ -203,13 +203,21 @@ class AdminAccessControlTests(TestCase):
         self.assertEqual(resp.status_code, 302)
         self.assertNotIn("/admin/dashboard/", resp.url)
 
-    def test_staff_can_access_admin_dashboard(self):
-        staff = User.objects.create_user("adminx", "adminx@example.com", "x")
+    def test_superadmin_can_access_admin_dashboard(self):
+        # The admin dashboard is Super-Admin-only (superuser + staff).
+        boss = User.objects.create_superuser("adminx", "adminx@example.com", "x")
+        self.client.force_login(boss)
+        resp = self.client.get("/admin/dashboard/")
+        self.assertEqual(resp.status_code, 200)
+
+    def test_plain_staff_cannot_access_admin_dashboard(self):
+        # A non-superuser staff account must NOT get Super Admin access.
+        staff = User.objects.create_user("adminx2", "adminx2@example.com", "x")
         staff.is_staff = True
         staff.save()
         self.client.force_login(staff)
         resp = self.client.get("/admin/dashboard/")
-        self.assertEqual(resp.status_code, 200)
+        self.assertEqual(resp.status_code, 302)
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -280,3 +288,317 @@ class ScoreCalculationTests(TestCase):
         request = self._request_with_answers(answers)
         _persist_quiz_attempt(request, self.quiz)
         self.assertEqual(Attempt.objects.filter(user=self.user, quiz=self.quiz).count(), 1)
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Teacher Management System
+# ─────────────────────────────────────────────────────────────────────────────
+from django.contrib.auth.models import Group  # noqa: E402
+from django.core.management import call_command  # noqa: E402
+
+from app1.models import (  # noqa: E402
+    AuditLog,
+    Company,
+    ImportedResult,
+    PendingStudentProfile,
+    PlacementDrive,
+    StudentProfile,
+    TeacherProfile,
+)
+from app1.permissions import (  # noqa: E402
+    TEACHER_GROUP,
+    can_manage_quiz,
+    is_staff_member,
+    is_super_admin,
+    is_teacher,
+)
+from app1.services import csv_safe  # noqa: E402
+
+
+def _make_teacher(username="teach1", employee_id="E1"):
+    group, _ = Group.objects.get_or_create(name=TEACHER_GROUP)
+    user = User.objects.create_user(username=username, email=f"{username}@ex.com",
+                                    password="Str0ngPass!42")
+    user.is_staff = True
+    user.is_superuser = False
+    user.save()
+    user.groups.add(group)
+    TeacherProfile.objects.create(user=user, employee_id=employee_id)
+    return user
+
+
+def _make_superadmin(username="boss"):
+    return User.objects.create_superuser(username=username, email="boss@ex.com",
+                                         password="Str0ngPass!42")
+
+
+def _make_student(username="stud1"):
+    return User.objects.create_user(username=username, email=f"{username}@ex.com",
+                                    password="Str0ngPass!42", is_staff=False)
+
+
+class RoleHelperTests(TestCase):
+    def test_role_helpers(self):
+        teacher = _make_teacher()
+        boss = _make_superadmin()
+        student = _make_student()
+        self.assertTrue(is_teacher(teacher))
+        self.assertFalse(is_super_admin(teacher))
+        self.assertTrue(is_super_admin(boss))
+        # Super admin is a staff member but not a "teacher" (group role).
+        self.assertTrue(is_staff_member(boss))
+        self.assertFalse(is_teacher(boss))
+        self.assertFalse(is_staff_member(student))
+
+    def test_plain_staff_is_not_superadmin(self):
+        u = User.objects.create_user("plainstaff", "p@ex.com", "Str0ngPass!42")
+        u.is_staff = True
+        u.save()
+        self.assertFalse(is_super_admin(u))
+        self.assertFalse(is_teacher(u))  # not in Teacher group
+
+
+class LoginRedirectTests(TestCase):
+    def setUp(self):
+        self.client = Client()
+
+    def test_teacher_login_redirects_to_teacher_dashboard(self):
+        _make_teacher()
+        resp = self.client.post("/admin/login/",
+                                {"username": "teach1", "password": "Str0ngPass!42"})
+        self.assertRedirects(resp, "/teacher/dashboard/", fetch_redirect_response=False)
+
+    def test_superadmin_login_redirects_to_admin_dashboard(self):
+        _make_superadmin()
+        resp = self.client.post("/admin/login/",
+                                {"username": "boss", "password": "Str0ngPass!42"})
+        self.assertRedirects(resp, "/admin/dashboard/", fetch_redirect_response=False)
+
+
+class AccessControlTests(TestCase):
+    def setUp(self):
+        self.client = Client()
+
+    def test_teacher_can_open_dashboard(self):
+        t = _make_teacher()
+        self.client.force_login(t)
+        self.assertEqual(self.client.get("/teacher/dashboard/").status_code, 200)
+
+    def test_student_cannot_open_teacher_dashboard(self):
+        s = _make_student()
+        self.client.force_login(s)
+        resp = self.client.get("/teacher/dashboard/")
+        self.assertNotEqual(resp.status_code, 200)  # redirected away
+
+    def test_teacher_cannot_open_superadmin_teacher_management(self):
+        t = _make_teacher()
+        self.client.force_login(t)
+        resp = self.client.get("/admin/teachers/")
+        self.assertEqual(resp.status_code, 302)  # blocked by superadmin_required
+
+    def test_all_teacher_pages_render(self):
+        """Smoke-test every teacher list/form page renders without template errors."""
+        cat = Category.objects.create(name="Apt")
+        t = _make_teacher()
+        company = Company.objects.create(name="Acme", created_by=t)
+        drive = PlacementDrive.objects.create(company=company, title="D",
+                                               drive_date="2025-06-01", created_by=t)
+        quiz = Quiz.objects.create(title="Q", category=cat, created_by=t)
+        Question.objects.create(quiz=quiz, text="Q1")
+        self.client.force_login(t)
+        pages = [
+            "/teacher/dashboard/", "/teacher/companies/", "/teacher/companies/add/",
+            f"/teacher/companies/{company.id}/edit/", "/teacher/drives/",
+            "/teacher/drives/add/", f"/teacher/drives/{drive.id}/edit/",
+            "/teacher/quizzes/", "/teacher/quizzes/add/",
+            f"/teacher/quizzes/{quiz.id}/edit/", f"/teacher/quizzes/{quiz.id}/questions/",
+            f"/teacher/quizzes/{quiz.id}/questions/add/",
+            f"/teacher/quizzes/{quiz.id}/upload-csv/",
+            f"/teacher/quizzes/{quiz.id}/ai-generate/",
+            "/teacher/students/", f"/teacher/students/{_make_student('sview').id}/",
+            "/teacher/results/", "/teacher/results/import/",
+            "/teacher/students/import/", "/teacher/analytics/",
+            "/teacher/import-history/",
+        ]
+        for url in pages:
+            self.assertEqual(self.client.get(url).status_code, 200, f"{url} did not render")
+
+    def test_superadmin_pages_render(self):
+        boss = _make_superadmin("boss2")
+        t = _make_teacher("tt", "EE1")
+        self.client.force_login(boss)
+        for url in ["/admin/teachers/", "/admin/teachers/add/",
+                    f"/admin/teachers/{t.teacher_profile.id}/edit/", "/admin/audit-logs/"]:
+            self.assertEqual(self.client.get(url).status_code, 200, f"{url} did not render")
+
+
+class QuizOwnershipTests(TestCase):
+    def setUp(self):
+        self.client = Client()
+        self.cat = Category.objects.create(name="Apt")
+        self.t1 = _make_teacher("t1", "E1")
+        self.t2 = _make_teacher("t2", "E2")
+
+    def _make_quiz(self, owner):
+        return Quiz.objects.create(title="Q", category=self.cat, created_by=owner)
+
+    def test_owner_can_manage_other_cannot(self):
+        q = self._make_quiz(self.t1)
+        self.assertTrue(can_manage_quiz(self.t1, q))
+        self.assertFalse(can_manage_quiz(self.t2, q))
+
+    def test_teacher_cannot_edit_others_quiz_via_url(self):
+        q = self._make_quiz(self.t1)
+        self.client.force_login(self.t2)
+        resp = self.client.get(f"/teacher/quizzes/{q.id}/edit/")
+        self.assertEqual(resp.status_code, 403)
+
+    def test_delete_requires_post(self):
+        q = self._make_quiz(self.t1)
+        self.client.force_login(self.t1)
+        # GET on a POST-only delete route is rejected.
+        self.assertEqual(self.client.get(f"/teacher/quizzes/{q.id}/delete/").status_code, 405)
+
+    def test_quiz_without_results_is_hard_deleted(self):
+        q = self._make_quiz(self.t1)
+        self.client.force_login(self.t1)
+        self.client.post(f"/teacher/quizzes/{q.id}/delete/")
+        self.assertFalse(Quiz.objects.filter(pk=q.pk).exists())
+
+    def test_quiz_with_attempts_is_archived(self):
+        q = self._make_quiz(self.t1)
+        Attempt.objects.create(user=_make_student(), quiz=q, score=1, total=1)
+        self.client.force_login(self.t1)
+        self.client.post(f"/teacher/quizzes/{q.id}/delete/")
+        q.refresh_from_db()
+        self.assertTrue(q.is_archived)
+        self.assertEqual(q.status, "disabled")
+
+
+class TeacherManagementTests(TestCase):
+    def setUp(self):
+        self.client = Client()
+        self.boss = _make_superadmin()
+
+    def test_superadmin_creates_teacher(self):
+        self.client.force_login(self.boss)
+        resp = self.client.post("/admin/teachers/add/", {
+            "username": "newteach", "email": "nt@ex.com",
+            "first_name": "New", "last_name": "Teach",
+            "employee_id": "EMP99", "department": "CS", "phone": "123",
+            "password": "Str0ngPass!42", "confirm_password": "Str0ngPass!42",
+            "is_active": "on",
+        })
+        self.assertEqual(resp.status_code, 302)
+        u = User.objects.get(username="newteach")
+        self.assertTrue(u.is_staff)
+        self.assertFalse(u.is_superuser)
+        self.assertTrue(u.groups.filter(name=TEACHER_GROUP).exists())
+        self.assertTrue(TeacherProfile.objects.filter(user=u).exists())
+
+
+class StudentEditSecurityTests(TestCase):
+    def setUp(self):
+        self.client = Client()
+        self.t = _make_teacher()
+        self.s = _make_student()
+
+    def test_teacher_edits_safe_fields_but_cannot_escalate(self):
+        self.client.force_login(self.t)
+        resp = self.client.post(f"/teacher/students/{self.s.id}/edit/", {
+            "first_name": "Edited", "last_name": "Name", "email": "new@ex.com",
+            "roll_number": "R1", "college": "C", "branch": "CSE",
+            "semester": "5", "batch": "2025", "phone": "999",
+            "is_active": "on",
+            # Malicious extra fields that must be ignored:
+            "is_staff": "on", "is_superuser": "on",
+        })
+        self.assertEqual(resp.status_code, 302)
+        self.s.refresh_from_db()
+        self.assertEqual(self.s.first_name, "Edited")
+        self.assertFalse(self.s.is_staff)      # never escalated
+        self.assertFalse(self.s.is_superuser)
+        self.assertEqual(self.s.student_profile.branch, "CSE")
+
+
+class CsvSafetyTests(TestCase):
+    def test_formula_injection_escaped(self):
+        for danger in ["=cmd", "+1", "-1", "@x"]:
+            self.assertTrue(csv_safe(danger).startswith("'"))
+        self.assertEqual(csv_safe("normal"), "normal")
+
+
+class ImportTests(TestCase):
+    def setUp(self):
+        self.client = Client()
+        self.t = _make_teacher()
+        self.client.force_login(self.t)
+
+    def _csv(self, text, name="f.csv"):
+        from django.core.files.uploadedfile import SimpleUploadedFile
+        return SimpleUploadedFile(name, text.encode("utf-8"), content_type="text/csv")
+
+    def test_import_unknown_email_creates_pending(self):
+        csv = ("email,first_name,last_name,roll_number,college,branch,semester,batch,phone\n"
+               "ghost@ex.com,Ghost,User,R7,College,CSE,5,2025,111\n")
+        resp = self.client.post("/teacher/students/import/",
+                                {"csv_file": self._csv(csv), "confirm": "1"})
+        self.assertEqual(resp.status_code, 302)
+        self.assertTrue(PendingStudentProfile.objects.filter(email="ghost@ex.com").exists())
+
+    def test_import_existing_email_updates_profile(self):
+        s = _make_student("existing")
+        csv = ("email,first_name,last_name,roll_number,college,branch,semester,batch,phone\n"
+               f"{s.email},Ex,Ist,R8,College,ECE,3,2024,222\n")
+        self.client.post("/teacher/students/import/",
+                         {"csv_file": self._csv(csv), "confirm": "1"})
+        s.refresh_from_db()
+        self.assertEqual(s.student_profile.branch, "ECE")
+        self.assertFalse(PendingStudentProfile.objects.filter(email=s.email).exists())
+
+    def test_offline_result_duplicate_rejected(self):
+        cat = Category.objects.create(name="Apt")
+        quiz = Quiz.objects.create(title="Q", category=cat, created_by=self.t)
+        s = _make_student("resu")
+        ImportedResult.objects.create(student=s, quiz=quiz, score=5, total=10,
+                                      percentage=Decimal("50"), exam_date="2025-01-01",
+                                      source="csv_import")
+        csv = ("student_email,quiz_id,score,total,correct_count,wrong_count,marks_obtained,exam_date\n"
+               f"{s.email},{quiz.id},5,10,5,5,5,2025-01-01\n")
+        self.client.post("/teacher/results/import/",
+                         {"csv_file": self._csv(csv), "confirm": "1"})
+        # Still only the one original record — duplicate was rejected.
+        self.assertEqual(ImportedResult.objects.filter(student=s, quiz=quiz).count(), 1)
+
+
+class AuditLogTests(TestCase):
+    def test_company_create_writes_audit_log(self):
+        t = _make_teacher()
+        self.client = Client()
+        self.client.force_login(t)
+        self.client.post("/teacher/companies/add/", {"name": "Acme", "is_active": "on"})
+        self.assertTrue(AuditLog.objects.filter(action="company.create").exists())
+
+
+class SetupRolesCommandTests(TestCase):
+    def test_setup_roles_is_idempotent_and_least_privilege(self):
+        call_command("setup_roles")
+        call_command("setup_roles")  # run twice — must not error
+        group = Group.objects.get(name=TEACHER_GROUP)
+        codenames = set(group.permissions.values_list("codename", flat=True))
+        # Never grants user deletion or permission management.
+        self.assertNotIn("delete_user", codenames)
+        self.assertNotIn("add_permission", codenames)
+        self.assertNotIn("change_group", codenames)
+        # Grants expected management perms.
+        self.assertIn("add_quiz", codenames)
+        self.assertIn("change_company", codenames)
+
+
+class BackwardCompatTests(TestCase):
+    def test_legacy_quiz_without_owner_still_accessible(self):
+        cat = Category.objects.create(name="Apt")
+        quiz = Quiz.objects.create(title="Legacy", category=cat)  # created_by=None
+        self.assertIsNone(quiz.created_by)
+        boss = _make_superadmin()
+        self.assertTrue(can_manage_quiz(boss, quiz))  # super admin manages all

@@ -107,6 +107,14 @@ def _login_user_from_supabase(request, supabase_uid, session, profile, login_ema
 
     if role == "admin":
         return redirect("admin_dashboard")
+
+    # Student login: attach any imported (pending) profile data by email and
+    # ensure a StudentProfile exists. Never blocks login on failure.
+    try:
+        from .services import claim_pending_student
+        claim_pending_student(shadow_user)
+    except Exception:
+        pass
     return redirect("student_dashboard")
 
 

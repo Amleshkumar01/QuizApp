@@ -1,0 +1,41 @@
+{% extends 'teacher/base_teacher.html' %}
+{% block teacher_title %}Import Students{% endblock %}
+{% block teacher_content %}
+<div class="page-header">
+    <div><h2 class="fw-bold mb-1">Import Students</h2><p class="mb-0" style="color:var(--muted);">Upload a CSV to create/update student profiles.</p></div>
+    <a href="{% url 'teacher_students' %}" class="btn btn-outline-secondary btn-sm"><i class="bi bi-arrow-left me-1"></i>Back</a>
+</div>
+
+{% if not preview %}
+<div class="feature-card">
+    <p class="small text-muted">Columns: <code>email, first_name, last_name, roll_number, college, branch, semester, batch, phone</code>. Max 2MB / 2000 rows. Registered students get a profile update; unknown emails become pending until they sign in.</p>
+    <form method="post" enctype="multipart/form-data">
+        {% csrf_token %}
+        <div class="mb-3"><input type="file" name="csv_file" accept=".csv" class="form-control" required></div>
+        <button type="submit" class="btn btn-primary"><i class="bi bi-eye me-1"></i>Preview</button>
+    </form>
+</div>
+{% else %}
+<div class="feature-card mb-3">
+    <h6 class="fw-bold">Preview</h6>
+    <p class="small mb-2"><span class="badge bg-success">{{ valid|length }} valid</span> <span class="badge bg-danger">{{ invalid|length }} invalid</span></p>
+    <div class="table-responsive"><table class="table table-sm">
+        <thead><tr><th>Email</th><th>Name</th><th>Roll</th><th>Branch</th><th>Existing?</th></tr></thead>
+        <tbody>{% for v in valid %}<tr><td>{{ v.email }}</td><td>{{ v.first_name }} {{ v.last_name }}</td><td>{{ v.roll_number }}</td><td>{{ v.branch }}</td><td>{% if v.exists %}<span class="badge bg-info">Registered</span>{% else %}<span class="badge bg-secondary">Pending</span>{% endif %}</td></tr>{% endfor %}</tbody>
+    </table></div>
+    {% if invalid %}
+    <h6 class="fw-bold text-danger mt-3">Invalid rows</h6>
+    <div class="table-responsive"><table class="table table-sm">
+        <tbody>{% for row, err in invalid %}<tr><td class="small text-muted">{{ row|join:", " }}</td><td class="text-danger small">{{ err }}</td></tr>{% endfor %}</tbody>
+    </table></div>
+    {% endif %}
+    <form method="post" enctype="multipart/form-data" class="mt-3">
+        {% csrf_token %}
+        <div class="alert alert-warning small">Re-select the same file to confirm the import.</div>
+        <input type="hidden" name="confirm" value="1">
+        <div class="mb-3"><input type="file" name="csv_file" accept=".csv" class="form-control" required></div>
+        <button type="submit" class="btn btn-success"><i class="bi bi-check-lg me-1"></i>Confirm Import</button>
+    </form>
+</div>
+{% endif %}
+{% endblock %}

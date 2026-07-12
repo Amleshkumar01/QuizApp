@@ -105,5 +105,29 @@
             <a href="{% url 'admin_manage_categories' %}" class="btn btn-primary btn-sm">Open</a>
         </div>
     </div>
+    <div class="col-md-6 col-lg-4">
+        <div class="feature-card h-100">
+            <div class="feature-icon purple"><i class="bi bi-person-badge"></i></div>
+            <h6 class="fw-bold mb-1">Teachers</h6>
+            <p class="mb-3">Create and manage teacher accounts.</p>
+            <a href="{% url 'admin_teachers' %}" class="btn btn-primary btn-sm">Open</a>
+        </div>
+    </div>
+    <div class="col-md-6 col-lg-4">
+        <div class="feature-card h-100">
+            <div class="feature-icon blue"><i class="bi bi-calendar-event"></i></div>
+            <h6 class="fw-bold mb-1">Placement Drives</h6>
+            <p class="mb-3">Manage upcoming placement drives.</p>
+            <a href="{% url 'teacher_drives' %}" class="btn btn-primary btn-sm">Open</a>
+        </div>
+    </div>
+    <div class="col-md-6 col-lg-4">
+        <div class="feature-card h-100">
+            <div class="feature-icon orange"><i class="bi bi-journal-check"></i></div>
+            <h6 class="fw-bold mb-1">Audit Logs</h6>
+            <p class="mb-3">Review sensitive management actions.</p>
+            <a href="{% url 'admin_audit_logs' %}" class="btn btn-primary btn-sm">Open</a>
+        </div>
+    </div>
 </div>
 {% endblock %}
