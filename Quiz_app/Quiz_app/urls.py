@@ -62,6 +62,7 @@ urlpatterns = [
     path("admin/audit-logs/", admin_teacher_views.admin_audit_logs, name="admin_audit_logs"),
 
     # Teacher portal
+    path("teacher/login/", teacher_views.teacher_login_view, name="teacher_login"),
     path("teacher/dashboard/", teacher_views.teacher_dashboard, name="teacher_dashboard"),
     path("teacher/companies/", teacher_views.teacher_companies, name="teacher_companies"),
     path("teacher/companies/add/", teacher_views.teacher_add_company, name="teacher_add_company"),

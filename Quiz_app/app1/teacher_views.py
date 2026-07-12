@@ -54,6 +54,47 @@ from .services import build_csv_response, build_error_csv, log_action, normalize
 from .ai_service import generate_questions
 from . import views as core_views
 
+from django.contrib.auth import authenticate, login
+from django.views.decorators.http import require_http_methods
+
+
+# ---------------------------------------------------------------------------
+# Teacher Login (separate from Super Admin)
+# ---------------------------------------------------------------------------
+
+@require_http_methods(["GET", "POST"])
+def teacher_login_view(request):
+    """Dedicated teacher login. Only Teacher group users can log in here.
+    Super Admins are directed to the admin login instead."""
+    if request.user.is_authenticated:
+        if is_teacher(request.user):
+            return redirect("teacher_dashboard")
+        if is_super_admin(request.user):
+            messages.info(request, "Super Admins should use the Admin login.")
+            return redirect("admin_login")
+        return redirect("student_dashboard")
+
+    if request.method == "POST":
+        username = (request.POST.get("username") or "").strip()
+        password = request.POST.get("password") or ""
+
+        user = authenticate(request, username=username, password=password)
+        if user is not None and is_teacher(user):
+            request.session.cycle_key()
+            login(request, user)
+            messages.success(request, f"Welcome, {user.first_name or user.username}!")
+            return redirect("teacher_dashboard")
+
+        if user is not None and is_super_admin(user):
+            messages.error(request, "Super Admin accounts cannot use the Teacher login. Use Admin login.")
+        elif user is not None and not user.is_staff:
+            messages.error(request, "Student accounts cannot access the Teacher portal.")
+        else:
+            messages.error(request, "Invalid teacher credentials.")
+        return render(request, "teacher/login.html", {"form_username": username})
+
+    return render(request, "teacher/login.html")
+
 
 # ---------------------------------------------------------------------------
 # Ownership-scoped querysets

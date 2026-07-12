@@ -1,0 +1,56 @@
+{% extends 'base.html' %}
+{% block title %}Teacher Login | PlacementIQ{% endblock %}
+
+{% block content %}
+<div class="auth-page fade-in-up">
+    <div class="auth-container">
+        <div class="auth-card">
+            <div class="auth-logo" style="background:linear-gradient(135deg,#2457d6,#1746b8);">
+                <i class="bi bi-easel2"></i>
+            </div>
+            <h1 class="auth-title">Teacher Portal</h1>
+            <p class="auth-subtitle">Login with your teacher account credentials</p>
+
+            {% if messages %}
+                {% for message in messages %}
+                    <div class="alert alert-{% if message.tags == 'error' %}danger{% elif message.tags == 'success' %}success{% else %}info{% endif %} py-2 small" role="alert">
+                        {{ message }}
+                    </div>
+                {% endfor %}
+            {% endif %}
+
+            <form method="post" novalidate>
+                {% csrf_token %}
+                <div class="auth-input-group">
+                    <label for="id_username">Username</label>
+                    <i class="bi bi-person input-icon"></i>
+                    <input type="text" id="id_username" name="username" required
+                           value="{{ form_username|default:'' }}"
+                           placeholder="Enter your teacher username" autocomplete="username">
+                </div>
+
+                <div class="auth-input-group">
+                    <label for="id_password">Password</label>
+                    <i class="bi bi-lock input-icon"></i>
+                    <input type="password" id="id_password" name="password" required
+                           placeholder="Enter your password" autocomplete="current-password">
+                </div>
+
+                <button type="submit" class="btn-signin" style="background:linear-gradient(135deg,#2457d6,#1746b8);border:0;width:100%;padding:.85rem;color:#fff;font-weight:800;border-radius:var(--radius-sm);font-size:1rem;cursor:pointer;margin-top:.5rem;">
+                    Sign In
+                </button>
+            </form>
+
+            <div class="auth-link mt-3">
+                <a href="{% url 'home' %}"><i class="bi bi-arrow-left me-1"></i>Back to home</a>
+                &middot;
+                <a href="{% url 'student_login' %}">Student login</a>
+            </div>
+
+            <div class="text-center mt-2">
+                <small style="color:var(--muted);">Only teacher accounts can log in here. <br>Super Admins use <a href="{% url 'admin_login' %}">Admin login</a>.</small>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

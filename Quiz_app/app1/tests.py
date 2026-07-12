@@ -374,6 +374,25 @@ class LoginRedirectTests(TestCase):
                                 {"username": "boss", "password": "Str0ngPass!42"})
         self.assertRedirects(resp, "/admin/dashboard/", fetch_redirect_response=False)
 
+    def test_teacher_login_page_allows_teacher(self):
+        _make_teacher()
+        resp = self.client.post("/teacher/login/",
+                                {"username": "teach1", "password": "Str0ngPass!42"})
+        self.assertRedirects(resp, "/teacher/dashboard/", fetch_redirect_response=False)
+
+    def test_teacher_login_page_blocks_superadmin(self):
+        _make_superadmin()
+        resp = self.client.post("/teacher/login/",
+                                {"username": "boss", "password": "Str0ngPass!42"})
+        # Should NOT redirect — stays on login page with error
+        self.assertEqual(resp.status_code, 200)
+        self.assertIn(b"Super Admin", resp.content)
+
+    def test_teacher_login_page_renders(self):
+        resp = self.client.get("/teacher/login/")
+        self.assertEqual(resp.status_code, 200)
+        self.assertIn(b"Teacher Portal", resp.content)
+
 
 class AccessControlTests(TestCase):
     def setUp(self):
